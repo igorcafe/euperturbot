@@ -15,11 +15,13 @@ import (
 )
 
 var token = env.Must("TOKEN")
+var mydao *dao.DAO
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	mydao, err := dao.NewSqlite("euperturbot.db")
+	var err error
+	mydao, err = dao.NewSqlite("euperturbot.db")
 	if err != nil {
 		panic(err)
 	}
@@ -44,122 +46,119 @@ func main() {
 		panic(err)
 	}
 
-	h.Handle(func(bot *tg.Bot, u tg.Update) {
-		fields := strings.SplitN(u.Message.Text, " ", 2)
-		topic := ""
-		if len(fields) > 1 {
-			topic = fields[1]
-		}
+	h.Handle(handleSubTopic, th.CommandEqual("suba"))
+	h.Handle(handleUnsubTopic, th.CommandEqual("desca"))
+	h.Handle(handleCallSubs, th.CommandEqual("bora"))
+	h.Handle(handleListUserTopics, th.CommandEqual("lista"))
+	h.Handle(handleListChatTopics, th.CommandEqual("listudo"))
 
-		userTopic := dao.UserTopic{
-			ChatID:   u.Message.Chat.ID,
-			UserID:   u.Message.From.ID,
-			Username: username(u.Message.From),
-			Topic:    topic,
-		}
-		if u.Message.ReplyToMessage != nil {
-			userTopic.UserID = u.Message.ReplyToMessage.From.ID
-			userTopic.Username = username(u.Message.ReplyToMessage.From)
-		}
+	defer h.Stop()
+	h.Start()
+}
 
-		err = mydao.SaveTopic(userTopic)
-		if err, ok := err.(*sqlite.Error); ok &&
-			err.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "já inscrito nesse tópico",
-			})
-			return
-		}
-		if err != nil {
-			fmt.Println(err)
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "falha ao salvar tópico",
-			})
-			return
-		}
+func handleSubTopic(bot *tg.Bot, u tg.Update) {
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	topic := ""
+	if len(fields) > 1 {
+		topic = fields[1]
+	}
 
-		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "inscrição adicionada para " + userTopic.Username,
+	userTopic := dao.UserTopic{
+		ChatID:   u.Message.Chat.ID,
+		UserID:   u.Message.From.ID,
+		Username: username(u.Message.From),
+		Topic:    topic,
+	}
+	if u.Message.ReplyToMessage != nil {
+		userTopic.UserID = u.Message.ReplyToMessage.From.ID
+		userTopic.Username = username(u.Message.ReplyToMessage.From)
+	}
+
+	err := mydao.SaveTopic(userTopic)
+	if err, ok := err.(*sqlite.Error); ok &&
+		err.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "já inscrito nesse tópico",
 		})
-		if err != nil {
-			log.Print(err)
-		}
-	}, th.CommandEqual("suba"))
-
-	h.Handle(func(bot *tg.Bot, u tg.Update) {
-		fields := strings.SplitN(u.Message.Text, " ", 2)
-		topic := ""
-		if len(fields) > 1 {
-			topic = fields[1]
-		}
-
-		err := mydao.DeleteTopic(dao.UserTopic{
-			ChatID:   u.Message.Chat.ID,
-			UserID:   u.Message.From.ID,
-			Username: username(u.Message.From),
-			Topic:    topic,
+		return
+	}
+	if err != nil {
+		fmt.Println(err)
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "falha ao salvar tópico",
 		})
-		if err != nil {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "falha ao descer :/",
-			})
-			return
-		}
+		return
+	}
 
-		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "inscrição removida para o tópico " + topic,
+	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		Text: "inscrição adicionada para " + userTopic.Username,
+	})
+	if err != nil {
+		log.Print(err)
+	}
+}
+
+func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	topic := ""
+	if len(fields) > 1 {
+		topic = fields[1]
+	}
+
+	err := mydao.DeleteTopic(dao.UserTopic{
+		ChatID:   u.Message.Chat.ID,
+		UserID:   u.Message.From.ID,
+		Username: username(u.Message.From),
+		Topic:    topic,
+	})
+	if err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "falha ao descer :/",
 		})
-		if err != nil {
-			log.Print(err)
-		}
-	}, th.CommandEqual("desca"))
+		return
+	}
 
-	h.Handle(func(bot *tg.Bot, u tg.Update) {
-		fields := strings.SplitN(u.Message.Text, " ", 2)
-		topic := ""
-		if len(fields) > 1 {
-			topic = fields[1]
-		}
+	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		Text: "inscrição removida para o tópico " + topic,
+	})
+	if err != nil {
+		log.Print(err)
+	}
+}
 
-		if !isTopicValid(topic) {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "tópico inválido",
-			})
-			return
-		}
+func handleCallSubs(bot *tg.Bot, u tg.Update) {
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	topic := ""
+	if len(fields) > 1 {
+		topic = fields[1]
+	}
 
-		topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
-		if err != nil {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "falha ao listar usuários",
-			})
-			return
-		}
+	if !isTopicValid(topic) {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "tópico inválido",
+		})
+		return
+	}
 
-		if len(topics) == 0 {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "não tem ninguém inscrito nesse tópico",
-			})
-			return
-		}
+	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
+	if err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "falha ao listar usuários",
+		})
+		return
+	}
 
-		txt := ""
-		for i, t := range topics {
-			txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", t.Username, t.UserID)
-			if (i+1)%4 == 0 {
-				_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-					Text:      txt,
-					ParseMode: "MarkdownV2",
-				})
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				txt = ""
-			}
-		}
+	if len(topics) == 0 {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "não tem ninguém inscrito nesse tópico",
+		})
+		return
+	}
 
-		if txt != "" {
+	txt := ""
+	for i, t := range topics {
+		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", t.Username, t.UserID)
+		if (i+1)%4 == 0 {
 			_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 				Text:      txt,
 				ParseMode: "MarkdownV2",
@@ -168,69 +167,78 @@ func main() {
 				log.Print(err)
 				return
 			}
+			txt = ""
 		}
-	}, th.CommandEqual("bora"))
+	}
 
-	h.Handle(func(bot *tg.Bot, u tg.Update) {
-		topics, err := mydao.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
-		if err != nil {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "falha ao listar tópicos",
-			})
-			return
-		}
-
-		if len(topics) == 0 {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "você não está inscrito em nenhum tópico",
-			})
-			return
-		}
-
-		txt := "seus tópicos:\n"
-		for _, topic := range topics {
-			txt += topic.Topic + "\n"
-		}
-
+	if txt != "" {
 		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: txt,
+			Text:      txt,
+			ParseMode: "MarkdownV2",
 		})
 		if err != nil {
 			log.Print(err)
-		}
-	}, th.CommandEqual("lista"))
-
-	h.Handle(func(bot *tg.Bot, u tg.Update) {
-		topics, err := mydao.FindChatTopics(u.Message.Chat.ID)
-		if err != nil {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "falha ao listar tópicos",
-			})
 			return
 		}
+	}
+}
 
-		if len(topics) == 0 {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text: "não existe nenhum tópico registrado nesse chat",
-			})
-			return
-		}
-
-		txt := "tópicos:\n"
-		for _, topic := range topics {
-			txt += topic.Topic + "\n"
-		}
-
-		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: txt,
+func handleListUserTopics(bot *tg.Bot, u tg.Update) {
+	topics, err := mydao.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
+	if err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "falha ao listar tópicos",
 		})
-		if err != nil {
-			log.Print(err)
-		}
-	}, th.CommandEqual("listudo"))
+		return
+	}
 
-	defer h.Stop()
-	h.Start()
+	if len(topics) == 0 {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "você não está inscrito em nenhum tópico",
+		})
+		return
+	}
+
+	txt := "seus tópicos:\n"
+	for _, topic := range topics {
+		txt += topic.Topic + "\n"
+	}
+
+	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		Text: txt,
+	})
+	if err != nil {
+		log.Print(err)
+	}
+}
+
+func handleListChatTopics(bot *tg.Bot, u tg.Update) {
+	topics, err := mydao.FindChatTopics(u.Message.Chat.ID)
+	if err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "falha ao listar tópicos",
+		})
+		return
+	}
+
+	if len(topics) == 0 {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "não existe nenhum tópico registrado nesse chat",
+		})
+		return
+	}
+
+	txt := "tópicos:\n"
+	for _, topic := range topics {
+		txt += topic.Topic + "\n"
+	}
+
+	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		Text: txt,
+	})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func replyToMessage(bot *tg.Bot, msg *tg.Message, params *tg.SendMessageParams) (*tg.Message, error) {
