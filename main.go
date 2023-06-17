@@ -36,7 +36,10 @@ func main() {
 		panic(err)
 	}
 
-	updates, err := bot.UpdatesViaLongPolling(nil)
+	updates, err := bot.UpdatesViaLongPolling(&tg.GetUpdatesParams{
+		Timeout:        10,
+		AllowedUpdates: []string{"message"},
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -61,6 +64,13 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 	topic := ""
 	if len(fields) > 1 {
 		topic = fields[1]
+	}
+
+	if err := validateTopic(topic); err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: err.Error(),
+		})
+		return
 	}
 
 	userTopic := dao.UserTopic{
@@ -133,9 +143,9 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) {
 		topic = fields[1]
 	}
 
-	if !isTopicValid(topic) {
+	if err := validateTopic(topic); err != nil {
 		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "tópico inválido",
+			Text: err.Error(),
 		})
 		return
 	}
@@ -201,7 +211,7 @@ func handleListUserTopics(bot *tg.Bot, u tg.Update) {
 
 	txt := "seus tópicos:\n"
 	for _, topic := range topics {
-		txt += topic.Topic + "\n"
+		txt += "- " + topic.Topic + "\n"
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
@@ -230,7 +240,7 @@ func handleListChatTopics(bot *tg.Bot, u tg.Update) {
 
 	txt := "tópicos:\n"
 	for _, topic := range topics {
-		txt += topic.Topic + "\n"
+		txt += "- " + topic.Topic + "\n"
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
@@ -254,11 +264,15 @@ func replyToMessage(bot *tg.Bot, msg *tg.Message, params *tg.SendMessageParams) 
 	return bot.SendMessage(params)
 }
 
-func isTopicValid(topic string) bool {
-	if len(strings.TrimSpace(topic)) == 0 {
-		return false
+func validateTopic(topic string) error {
+	topic = strings.TrimSpace(topic)
+	if len(topic) == 0 {
+		return fmt.Errorf("tópico vazio")
 	}
-	return true
+	if len(topic) > 30 {
+		return fmt.Errorf("tópico muito grande")
+	}
+	return nil
 }
 
 func sanitizeUsername(topic string) string {
