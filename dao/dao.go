@@ -95,8 +95,9 @@ func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 
 func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	rows, err := dao.db.Query(`
-		SELECT * FROM user_topic
+		SELECT DISTINCT * FROM user_topic
 		WHERE chat_id = $1
+		GROUP BY topic
 	`, chatID)
 	if err != nil {
 		log.Print(err)
