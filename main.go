@@ -223,6 +223,19 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) {
 		return
 	}
 
+	_, err = bot.SendPoll(&tg.SendPollParams{
+		ChatID: tg.ChatID{
+			ID: u.Message.Chat.ID,
+		},
+		Question:    topic,
+		Options:     []string{"bo 👍🏿", "bo nao 👎🏻"},
+		IsAnonymous: false, // waiting for fix on telego
+	})
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
 	txt := ""
 	for i, t := range topics {
 		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", t.Username, t.UserID)
