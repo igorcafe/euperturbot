@@ -52,6 +52,7 @@ func main() {
 	h.Handle(handleSubTopic, th.CommandEqual("suba"))
 	h.Handle(handleUnsubTopic, th.CommandEqual("desca"))
 	h.Handle(handleCallSubs, th.CommandEqual("bora"))
+	h.Handle(handleListSubs, th.CommandEqual("quem"))
 	h.Handle(handleListUserTopics, th.CommandEqual("lista"))
 	h.Handle(handleListChatTopics, th.CommandEqual("listudo"))
 
@@ -137,6 +138,50 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
 	})
 	if err != nil {
 		log.Print(err)
+	}
+}
+
+func handleListSubs(bot *tg.Bot, u tg.Update) {
+	log.Print(u.Message.Text)
+
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	topic := ""
+	if len(fields) > 1 {
+		topic = fields[1]
+	}
+
+	if err := validateTopic(topic); err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: err.Error(),
+		})
+		return
+	}
+
+	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
+	if err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "falha ao listar usuários",
+		})
+		return
+	}
+
+	if len(topics) == 0 {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "não tem ninguém inscrito nesse tópico",
+		})
+		return
+	}
+
+	txt := "inscritos nesse tópico:\n"
+	for _, t := range topics {
+		txt += fmt.Sprintf("- %s\n", t.Username)
+	}
+	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		Text: txt,
+	})
+	if err != nil {
+		log.Print(err)
+		return
 	}
 }
 
