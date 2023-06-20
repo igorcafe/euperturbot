@@ -120,6 +120,13 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
 		topic = fields[1]
 	}
 
+	if err := validateTopic(topic); err != nil {
+		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: err.Error(),
+		})
+		return
+	}
+
 	err := mydao.DeleteTopic(dao.UserTopic{
 		ChatID:   u.Message.Chat.ID,
 		UserID:   u.Message.From.ID,
