@@ -60,6 +60,8 @@ func main() {
 }
 
 func handleSubTopic(bot *tg.Bot, u tg.Update) {
+	log.Print(u.Message.Text)
+
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topic := ""
 	if len(fields) > 1 {
@@ -109,6 +111,8 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 }
 
 func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
+	log.Print(u.Message.Text)
+
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topic := ""
 	if len(fields) > 1 {
@@ -137,6 +141,8 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
 }
 
 func handleCallSubs(bot *tg.Bot, u tg.Update) {
+	log.Print(u.Message.Text)
+
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topic := ""
 	if len(fields) > 1 {
@@ -194,6 +200,8 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) {
 }
 
 func handleListUserTopics(bot *tg.Bot, u tg.Update) {
+	log.Print(u.Message.Text)
+
 	topics, err := mydao.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
 	if err != nil {
 		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
@@ -223,6 +231,8 @@ func handleListUserTopics(bot *tg.Bot, u tg.Update) {
 }
 
 func handleListChatTopics(bot *tg.Bot, u tg.Update) {
+	log.Print(u.Message.Text)
+
 	topics, err := mydao.FindChatTopics(u.Message.Chat.ID)
 	if err != nil {
 		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
