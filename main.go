@@ -245,7 +245,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) {
 		},
 		Question:    topic,
 		Options:     []string{"bo 👍🏿", "bo nao 👎🏻"},
-		IsAnonymous: false, // waiting for fix on telego
+		IsAnonymous: tg.ToPtr(false),
 	})
 	if err != nil {
 		log.Print(err)

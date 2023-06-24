@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/glebarez/go-sqlite v1.21.1
-	github.com/mymmrac/telego v0.25.0
+	github.com/mymmrac/telego v0.25.1
 	modernc.org/sqlite v1.21.1
 )
 
@@ -19,8 +19,8 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.47.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
+	github.com/valyala/fasthttp v1.48.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	modernc.org/libc v1.22.3 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect
