@@ -52,6 +52,7 @@ func main() {
 
 	h.Handle(handleSubTopic, th.CommandEqual("suba"))
 	h.Handle(handleUnsubTopic, th.CommandEqual("desca"))
+	h.Handle(handleCreatePoll, th.CommandEqual("pollo"))
 	h.Handle(handleCallSubs, th.CommandEqual("bora"))
 	h.Handle(handleListSubs, th.CommandEqual("quem"))
 	h.Handle(handleListUserTopics, th.CommandEqual("lista"))
@@ -161,6 +162,36 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
 	})
 	if err != nil {
 		log.Print(err)
+	}
+}
+
+func handleCreatePoll(bot *tg.Bot, u tg.Update) {
+	log.Print(username(u.Message.From) + ": " + u.Message.Text)
+
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	question := ""
+	if len(fields) > 1 {
+		question = strings.TrimSpace(fields[1])
+	}
+
+	if question == "" {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "cade o titulo joe",
+		})
+		return
+	}
+
+	_, err := bot.SendPoll(&tg.SendPollParams{
+		ChatID: tg.ChatID{
+			ID: u.Message.Chat.ID,
+		},
+		Question:    question,
+		Options:     []string{"👍🏿", "👎🏻"},
+		IsAnonymous: tg.ToPtr(false),
+	})
+	if err != nil {
+		log.Print(err)
+		return
 	}
 }
 
