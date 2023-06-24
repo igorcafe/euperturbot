@@ -45,7 +45,20 @@ type UserTopic struct {
 	Topic    string
 }
 
-func (dao *DAO) SaveTopic(topic UserTopic) error {
+func (dao *DAO) ExistsChatTopic(chatID int64, topic string) (bool, error) {
+	row := dao.db.QueryRow(`
+		SELECT EXISTS (
+			SELECT * FROM user_topic
+			WHERE chat_id = $1 AND topic = $2
+		)
+	`, chatID, topic)
+
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+func (dao *DAO) SaveUserTopic(topic UserTopic) error {
 	_, err := dao.db.Exec(`
 		INSERT INTO user_topic
 		(chat_id, user_id, username, topic)
@@ -55,7 +68,7 @@ func (dao *DAO) SaveTopic(topic UserTopic) error {
 	return err
 }
 
-func (dao *DAO) DeleteTopic(topic UserTopic) error {
+func (dao *DAO) DeleteUserTopic(topic UserTopic) error {
 	_, err := dao.db.Exec(`
 		DELETE FROM user_topic
 		WHERE chat_id = $1 AND user_id = $2 AND topic = $3

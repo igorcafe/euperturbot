@@ -15,6 +15,7 @@ import (
 )
 
 var token = env.Must("TOKEN")
+var godID = env.MustInt64("GOD_ID")
 var mydao *dao.DAO
 
 func main() {
@@ -76,6 +77,21 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 		return
 	}
 
+	exists, err := mydao.ExistsChatTopic(u.Message.Chat.ID, topic)
+	if err != nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: err.Error(),
+		})
+		return
+	}
+
+	if !exists && u.Message.From.ID != godID {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "macaquearam demais... chega!",
+		})
+		return
+	}
+
 	userTopic := dao.UserTopic{
 		ChatID:   u.Message.Chat.ID,
 		UserID:   u.Message.From.ID,
@@ -87,7 +103,7 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 		userTopic.Username = username(u.Message.ReplyToMessage.From)
 	}
 
-	err := mydao.SaveTopic(userTopic)
+	err = mydao.SaveUserTopic(userTopic)
 	if err, ok := err.(*sqlite.Error); ok &&
 		err.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
 		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
@@ -127,7 +143,7 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
 		return
 	}
 
-	err := mydao.DeleteTopic(dao.UserTopic{
+	err := mydao.DeleteUserTopic(dao.UserTopic{
 		ChatID:   u.Message.Chat.ID,
 		UserID:   u.Message.From.ID,
 		Username: username(u.Message.From),
@@ -193,7 +209,7 @@ func handleListSubs(bot *tg.Bot, u tg.Update) {
 }
 
 func handleCallSubs(bot *tg.Bot, u tg.Update) {
-	log.Print(u.Message.Text)
+	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topic := ""
