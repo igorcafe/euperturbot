@@ -57,6 +57,8 @@ func main() {
 	h.Handle(handleListSubs, th.CommandEqual("quem"))
 	h.Handle(handleListUserTopics, th.CommandEqual("lista"))
 	h.Handle(handleListChatTopics, th.CommandEqual("listudo"))
+	h.Handle(handleCountEvent, th.CommandEqual("conta"))
+	h.Handle(handleUncountEvent, th.CommandEqual("desconta"))
 
 	defer h.Stop()
 	h.Start()
@@ -371,6 +373,132 @@ func handleListChatTopics(bot *tg.Bot, u tg.Update) {
 	if err != nil {
 		log.Print(err)
 	}
+}
+
+func handleCountEvent(bot *tg.Bot, u tg.Update) {
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	if len(fields) == 1 {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "faltando nome do evento",
+		})
+		return
+	}
+
+	event := dao.ChatEvent{
+		ChatID: u.Message.Chat.ID,
+		Name:   strings.TrimSpace(fields[1]),
+	}
+
+	if u.Message.ReplyToMessage != nil {
+		event.MsgID = u.Message.ReplyToMessage.MessageID
+		event.Time = time.Unix(u.Message.ReplyToMessage.Date, 0)
+		if u.Message.From.ID != godID {
+			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+				Text: "sai macaco",
+			})
+			return
+		}
+
+		err := mydao.SaveChatEvent(event)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+	}
+
+	events, err := mydao.FindChatEventsByName(event)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	txt := fmt.Sprintf("%s 0 vez(es)", event.Name)
+
+	if len(events) > 0 {
+		last := time.Now().Sub(events[0].Time)
+		txt = fmt.Sprintf("%s %d vez(es). última vez há %d horas", event.Name, len(events), int(last.Hours()))
+	}
+
+	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		Text: txt,
+	})
+	if err != nil {
+		log.Print(err)
+		return
+	}
+}
+
+func handleUncountEvent(bot *tg.Bot, u tg.Update) {
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	if len(fields) == 1 {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "faltando nome do evento",
+		})
+		return
+	}
+
+	if u.Message.ReplyToMessage == nil {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "responda a mensagem que quer descontar",
+		})
+		return
+	}
+
+	if u.Message.From.ID != godID {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "já disse pra sair, macaco",
+		})
+		return
+	}
+
+	event := dao.ChatEvent{
+		ChatID: u.Message.Chat.ID,
+		MsgID:  u.Message.ReplyToMessage.MessageID,
+		Name:   strings.TrimSpace(fields[1]),
+	}
+
+	_, err := mydao.DeleteChatEvent(event)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		Text: "descontey",
+	})
+	if err != nil {
+		log.Print(err)
+		return
+	}
+}
+
+func handleAnyMessage(bot *tg.Bot, u tg.Update) {
+	log.Printf("any text: %s", u.Message.Text)
+
+	questions := []string{"and", "e?", "askers", "askers?", "perguntadores", "perguntadores?"}
+	found := false
+	for _, q := range questions {
+		if u.Message.Text == q {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+
+	msgID := 0
+	if u.Message.ReplyToMessage != nil {
+		msgID = u.Message.ReplyToMessage.MessageID
+	}
+	_, _ = bot.SendMessage(&tg.SendMessageParams{
+		ChatID: tg.ChatID{
+			ID: u.Message.Chat.ID,
+		},
+		Text:                     "perguntadores not found",
+		ReplyToMessageID:         msgID,
+		AllowSendingWithoutReply: true,
+	})
 }
 
 func replyToMessage(bot *tg.Bot, msg *tg.Message, params *tg.SendMessageParams) (*tg.Message, error) {

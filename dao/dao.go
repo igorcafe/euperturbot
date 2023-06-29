@@ -3,6 +3,7 @@ package dao
 import (
 	"database/sql"
 	"log"
+	"time"
 )
 
 type DAO struct {
@@ -28,6 +29,20 @@ func NewSqlite(dsn string) (*DAO, error) {
 			username TEXT,
 			topic TEXT,
 			UNIQUE(chat_id, user_id, topic)
+		)
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS event (
+			id INTEGER PRIMARY KEY,
+			chat_id INTEGER,
+			time TIMESTAMP,
+			name TEXT,
+			msg_id INTEGER,
+			UNIQUE(chat_id, msg_id, name)
 		)
 	`)
 	if err != nil {
@@ -153,4 +168,59 @@ func (dao *DAO) FindSubscriptionsByTopic(chatID int64, topic string) ([]UserTopi
 	}
 
 	return topics, nil
+}
+
+type ChatEvent struct {
+	ID     int64
+	ChatID int64
+	MsgID  int
+	Time   time.Time
+	Name   string
+}
+
+func (dao *DAO) SaveChatEvent(e ChatEvent) error {
+	_, err := dao.db.Exec(`
+		INSERT INTO event
+		(chat_id, msg_id, time, name)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT DO UPDATE SET time = $3
+	`, e.ChatID, e.MsgID, e.Time, e.Name)
+
+	return err
+}
+
+func (dao *DAO) FindChatEventsByName(e ChatEvent) ([]ChatEvent, error) {
+	rows, err := dao.db.Query(`
+		SELECT id, chat_id, msg_id, time, name FROM event
+		WHERE chat_id = $1 AND name = $2
+		ORDER BY time DESC
+	`, e.ChatID, e.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	events := []ChatEvent{}
+	for rows.Next() {
+		e := ChatEvent{}
+		err := rows.Scan(&e.ID, &e.ChatID, &e.MsgID, &e.Time, &e.Name)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+
+	return events, rows.Err()
+}
+
+func (dao *DAO) DeleteChatEvent(e ChatEvent) (int64, error) {
+	res, err := dao.db.Exec(`
+		DELETE FROM event
+		WHERE chat_id = $1 AND msg_id = $2 AND name = $3
+	`, e.ChatID, e.MsgID, e.Name)
+	if err != nil {
+		return 0, err
+	}
+
+	n, err := res.RowsAffected()
+	return n, err
 }
