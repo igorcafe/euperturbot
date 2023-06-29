@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/glebarez/go-sqlite"
@@ -59,6 +61,7 @@ func main() {
 	h.Handle(handleListChatTopics, th.CommandEqual("listudo"))
 	h.Handle(handleCountEvent, th.CommandEqual("conta"))
 	h.Handle(handleUncountEvent, th.CommandEqual("desconta"))
+	h.Handle(handleSpam, th.CommandEqual("spam"))
 
 	defer h.Stop()
 	h.Start()
@@ -469,6 +472,49 @@ func handleUncountEvent(bot *tg.Bot, u tg.Update) {
 	if err != nil {
 		log.Print(err)
 		return
+	}
+}
+
+func handleSpam(bot *tg.Bot, u tg.Update) {
+	if u.Message.From.ID != godID {
+		replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "sai man so faço isso pro @igorcafe",
+		})
+		return
+	}
+
+	fields := strings.SplitN(u.Message.Text, " ", 3)
+	if len(fields) != 3 {
+		replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: "uso: /spam <quantidade> <mensagem>",
+		})
+		return
+	}
+
+	count, err := strconv.Atoi(fields[1])
+	if err != nil {
+		replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: fmt.Sprintf("quantidade inválida: '%s'", fields[1]),
+		})
+		return
+	}
+
+	limit := make(chan struct{}, 10)
+
+	for i := 0; i < count; i++ {
+		limit <- struct{}{}
+		go func() {
+			_, err = bot.SendMessage(&tg.SendMessageParams{
+				ChatID: tg.ChatID{
+					ID: u.Message.Chat.ID,
+				},
+				Text: fields[2],
+			})
+			if err != nil {
+				log.Print(err)
+			}
+			<-limit
+		}()
 	}
 }
 
