@@ -108,6 +108,12 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 		Topic:    topic,
 	}
 	if u.Message.ReplyToMessage != nil {
+		if u.Message.ReplyToMessage.From.IsBot {
+			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+				Text: "bot nao pode man",
+			})
+			return
+		}
 		userTopic.UserID = u.Message.ReplyToMessage.From.ID
 		userTopic.Username = username(u.Message.ReplyToMessage.From)
 	}
