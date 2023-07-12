@@ -424,11 +424,21 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) {
 		return
 	}
 
-	txt := fmt.Sprintf("%s 0 vez(es)", event.Name)
+	if len(events) == 0 {
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: fmt.Sprintf("%s 0 vez(es)", event.Name),
+		})
+		return
+	}
 
-	if len(events) > 0 {
-		last := time.Now().Sub(events[0].Time)
-		txt = fmt.Sprintf("%s %d vez(es). última vez há %d horas", event.Name, len(events), int(last.Hours()))
+	last := time.Now().Sub(events[0].Time)
+	relative := relativeDuration(last)
+
+	var txt string
+	if len(events) == 1 {
+		txt = fmt.Sprintf("%s %d vez há %s", event.Name, len(events), relative)
+	} else {
+		txt = fmt.Sprintf("%s %d vezes. última vez há %s", event.Name, len(events), relative)
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
@@ -598,4 +608,40 @@ func username(user *tg.User) string {
 		s = sanitizeUsername(user.FirstName)
 	}
 	return s
+}
+
+func relativeDuration(d time.Duration) string {
+	times := []string{}
+
+	durationFormats := []struct {
+		nameSingular string
+		namePlural   string
+		duration     time.Duration
+	}{
+		{"dia", "dias", 24 * time.Hour},
+		{"hora", "horas", time.Hour},
+		{"minuto", "minutos", time.Minute},
+		{"segundo", "segundos", time.Second},
+	}
+
+	for _, format := range durationFormats {
+		if len(times) == 2 {
+			break
+		}
+		div := d / format.duration
+		if div == 0 {
+			continue
+		}
+		d -= div * format.duration
+
+		s := fmt.Sprint(int(div)) + " "
+		if div == 1 {
+			s += format.nameSingular
+		} else {
+			s += format.namePlural
+		}
+		times = append(times, s)
+	}
+
+	return strings.Join(times, " e ")
 }
