@@ -16,12 +16,15 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
-var token = env.Must("TOKEN")
-var godID = env.MustInt64("GOD_ID")
+var token string
+var godID int64
 var mydao *dao.DAO
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	token = env.Must("TOKEN")
+	godID = env.MustInt64("GOD_ID")
 
 	var err error
 	mydao, err = dao.NewSqlite("euperturbot.db")
