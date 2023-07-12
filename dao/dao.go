@@ -24,10 +24,10 @@ func NewSqlite(dsn string) (*DAO, error) {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS user_topic (
 			id INTEGER PRIMARY KEY,
-			chat_id INTEGER,
-			user_id INTEGER,
-			username TEXT,
-			topic TEXT,
+			chat_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			username TEXT NOT NULL,
+			topic TEXT NOT NULL,
 			UNIQUE(chat_id, user_id, topic)
 		)
 	`)
@@ -38,10 +38,10 @@ func NewSqlite(dsn string) (*DAO, error) {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS event (
 			id INTEGER PRIMARY KEY,
-			chat_id INTEGER,
-			time TIMESTAMP,
-			name TEXT,
-			msg_id INTEGER,
+			chat_id INTEGER NOT NULL,
+			time TIMESTAMP NOT NULL,
+			name TEXT NOT NULL,
+			msg_id INTEGER NOT NULL,
 			UNIQUE(chat_id, msg_id, name)
 		)
 	`)
