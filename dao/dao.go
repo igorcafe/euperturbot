@@ -52,6 +52,33 @@ func NewSqlite(dsn string) (*DAO, error) {
 	return &DAO{db}, nil
 }
 
+func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) []any) ([]E, error) {
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Print(err)
+		}
+	}()
+
+	var res []E
+
+	for rows.Next() {
+		var e E
+		err := rows.Scan(dest(&e)...)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, e)
+	}
+
+	return res, rows.Err()
+}
+
 type UserTopic struct {
 	ID       int64
 	ChatID   int64
@@ -98,76 +125,51 @@ func (dao *DAO) DeleteUserTopic(topic UserTopic) error {
 }
 
 func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
-	rows, err := dao.db.Query(`
+	sql := `
 		SELECT * FROM user_topic
 		WHERE chat_id = $1 AND user_id = $2
-	`, chatID, userID)
-	if err != nil {
-		log.Print(err)
-		return nil, err
-	}
-
-	topics := []UserTopic{}
-
-	for rows.Next() {
-		t := UserTopic{}
-		err := rows.Scan(&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic)
-		if err != nil {
-			return nil, err
-		}
-		topics = append(topics, t)
-	}
-
-	return topics, nil
+	`
+	return querySlice[UserTopic](
+		dao.db,
+		sql,
+		[]any{chatID, userID},
+		func(t *UserTopic) []any {
+			return []any{&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic}
+		},
+	)
 }
 
+type nextFn func() nextFn
+
 func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
-	rows, err := dao.db.Query(`
+	sql := `
 		SELECT DISTINCT * FROM user_topic
 		WHERE chat_id = $1
 		GROUP BY topic
-	`, chatID)
-	if err != nil {
-		log.Print(err)
-		return nil, err
-	}
-
-	topics := []UserTopic{}
-
-	for rows.Next() {
-		t := UserTopic{}
-		err := rows.Scan(&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic)
-		if err != nil {
-			return nil, err
-		}
-		topics = append(topics, t)
-	}
-
-	return topics, nil
+	`
+	return querySlice[UserTopic](
+		dao.db,
+		sql,
+		[]any{chatID},
+		func(t *UserTopic) []any {
+			return []any{&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic}
+		},
+	)
 }
 
 func (dao *DAO) FindSubscriptionsByTopic(chatID int64, topic string) ([]UserTopic, error) {
-	rows, err := dao.db.Query(`
+	sql := `
 		SELECT * FROM user_topic
 		WHERE chat_id = $1 AND topic = $2
-	`, chatID, topic)
-	if err != nil {
-		log.Print(err)
-		return nil, err
-	}
-
-	topics := []UserTopic{}
-
-	for rows.Next() {
-		t := UserTopic{}
-		err := rows.Scan(&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic)
-		if err != nil {
-			return nil, err
-		}
-		topics = append(topics, t)
-	}
-
-	return topics, nil
+	`
+	return querySlice[UserTopic](
+		dao.db,
+		sql,
+		[]any{chatID, topic},
+		func(t *UserTopic) []any {
+			return []any{&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic}
+		},
+	)
 }
 
 type ChatEvent struct {
@@ -190,26 +192,19 @@ func (dao *DAO) SaveChatEvent(e ChatEvent) error {
 }
 
 func (dao *DAO) FindChatEventsByName(e ChatEvent) ([]ChatEvent, error) {
-	rows, err := dao.db.Query(`
+	sql := `
 		SELECT id, chat_id, msg_id, time, name FROM event
 		WHERE chat_id = $1 AND name = $2
 		ORDER BY time DESC
-	`, e.ChatID, e.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	events := []ChatEvent{}
-	for rows.Next() {
-		e := ChatEvent{}
-		err := rows.Scan(&e.ID, &e.ChatID, &e.MsgID, &e.Time, &e.Name)
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, e)
-	}
-
-	return events, rows.Err()
+	`
+	return querySlice[ChatEvent](
+		dao.db,
+		sql,
+		[]any{e.ChatID, e.Name},
+		func(e *ChatEvent) []any {
+			return []any{&e.ID, &e.ChatID, &e.MsgID, &e.Time, &e.Name}
+		},
+	)
 }
 
 func (dao *DAO) DeleteChatEvent(e ChatEvent) (int64, error) {
