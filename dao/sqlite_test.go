@@ -162,3 +162,39 @@ func TestChatEvent(t *testing.T) {
 		t.Fatalf("want: 0 events, got: %+v", events)
 	}
 }
+
+func TestPollVote(t *testing.T) {
+	mydao, err := dao.NewSqlite(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mydao.Close()
+
+	err = mydao.SavePoll(dao.Poll{
+		ID:              "poll",
+		ChatID:          1,
+		Topic:           "topic",
+		ResultMessageID: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = mydao.SavePollVote(dao.PollVote{
+		PollID: "poll",
+		UserID: 1,
+		Vote:   1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	votes, err := mydao.FindPollVotes("poll")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(votes) == 0 {
+		t.Fatal("want: 1 poll vote, got: none")
+	}
+}
