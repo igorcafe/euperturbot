@@ -52,6 +52,10 @@ func NewSqlite(dsn string) (*DAO, error) {
 	return &DAO{db}, nil
 }
 
+func (dao *DAO) Close() error {
+	return dao.db.Close()
+}
+
 func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) []any) ([]E, error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -116,12 +120,7 @@ func (dao *DAO) DeleteUserTopic(topic UserTopic) error {
 		WHERE chat_id = $1 AND user_id = $2 AND topic = $3
 	`, topic.ChatID, topic.UserID, topic.Topic)
 
-	if err != nil {
-		log.Print(err)
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
@@ -191,7 +190,7 @@ func (dao *DAO) SaveChatEvent(e ChatEvent) error {
 	return err
 }
 
-func (dao *DAO) FindChatEventsByName(e ChatEvent) ([]ChatEvent, error) {
+func (dao *DAO) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, error) {
 	sql := `
 		SELECT id, chat_id, msg_id, time, name FROM event
 		WHERE chat_id = $1 AND name = $2
@@ -200,22 +199,17 @@ func (dao *DAO) FindChatEventsByName(e ChatEvent) ([]ChatEvent, error) {
 	return querySlice[ChatEvent](
 		dao.db,
 		sql,
-		[]any{e.ChatID, e.Name},
+		[]any{chatID, name},
 		func(e *ChatEvent) []any {
 			return []any{&e.ID, &e.ChatID, &e.MsgID, &e.Time, &e.Name}
 		},
 	)
 }
 
-func (dao *DAO) DeleteChatEvent(e ChatEvent) (int64, error) {
-	res, err := dao.db.Exec(`
+func (dao *DAO) DeleteChatEvent(e ChatEvent) error {
+	_, err := dao.db.Exec(`
 		DELETE FROM event
 		WHERE chat_id = $1 AND msg_id = $2 AND name = $3
 	`, e.ChatID, e.MsgID, e.Name)
-	if err != nil {
-		return 0, err
-	}
-
-	n, err := res.RowsAffected()
-	return n, err
+	return err
 }

@@ -2,18 +2,20 @@ package dao_test
 
 import (
 	"testing"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/igoracmelo/euperturbot/dao"
 )
 
-func TestIntegration(t *testing.T) {
+func TestUserTopic(t *testing.T) {
 	mydao, err := dao.NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer mydao.Close()
 
-	// me: sub game
+	// me: /sub game
 	err = mydao.SaveUserTopic(dao.UserTopic{
 		ChatID:   1,
 		UserID:   1,
@@ -113,5 +115,50 @@ func TestIntegration(t *testing.T) {
 	}
 	if exists {
 		t.Fatal("topic 'game' should not be found")
+	}
+}
+
+func TestChatEvent(t *testing.T) {
+	mydao, err := dao.NewSqlite(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mydao.Close()
+
+	err = mydao.SaveChatEvent(dao.ChatEvent{
+		ChatID: 1,
+		MsgID:  1,
+		Time:   time.Time{},
+		Name:   "event1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events, err := mydao.FindChatEventsByName(1, "event1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(events) != 1 {
+		t.Fatalf("want: 1 event, got: %+v", events)
+	}
+
+	err = mydao.DeleteChatEvent(dao.ChatEvent{
+		ChatID: 1,
+		MsgID:  1,
+		Name:   "event1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events, err = mydao.FindChatEventsByName(1, "event1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(events) != 0 {
+		t.Fatalf("want: 0 events, got: %+v", events)
 	}
 }
