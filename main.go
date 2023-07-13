@@ -11,8 +11,7 @@ import (
 	"github.com/glebarez/go-sqlite"
 	"github.com/igoracmelo/euperturbot/dao"
 	"github.com/igoracmelo/euperturbot/env"
-	tg "github.com/mymmrac/telego"
-	th "github.com/mymmrac/telego/telegohandler"
+	"github.com/igoracmelo/euperturbot/tg"
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
@@ -32,7 +31,7 @@ func main() {
 		panic(err)
 	}
 
-	bot, err := tg.NewBot(token)
+	bot := tg.NewBot(token)
 	if err != nil {
 		panic(err)
 	}
@@ -42,35 +41,22 @@ func main() {
 		panic(err)
 	}
 
-	updates, err := bot.UpdatesViaLongPolling(&tg.GetUpdatesParams{
-		Timeout:        10,
-		AllowedUpdates: []string{"message"},
-	})
-	if err != nil {
-		panic(err)
-	}
+	updates := bot.GetUpdatesChannel()
+	h := tg.NewUpdateHandler(bot, updates)
 
-	h, err := th.NewBotHandler(bot, updates)
-	if err != nil {
-		panic(err)
-	}
-
-	h.Handle(handleSubTopic, th.CommandEqual("suba"))
-	h.Handle(handleUnsubTopic, th.CommandEqual("desca"))
-	h.Handle(handleCreatePoll, th.CommandEqual("pollo"))
-	h.Handle(handleCallSubs, th.CommandEqual("bora"))
-	h.Handle(handleListSubs, th.CommandEqual("quem"))
-	h.Handle(handleListUserTopics, th.CommandEqual("lista"))
-	h.Handle(handleListChatTopics, th.CommandEqual("listudo"))
-	h.Handle(handleCountEvent, th.CommandEqual("conta"))
-	h.Handle(handleUncountEvent, th.CommandEqual("desconta"))
-	h.Handle(handleSpam, th.CommandEqual("spam"))
-
-	defer h.Stop()
+	h.HandleCommand("suba", handleSubTopic)
+	h.HandleCommand("desca", handleUnsubTopic)
+	h.HandleCommand("pollo", handleCreatePoll)
+	h.HandleCommand("bora", handleCallSubs)
+	h.HandleCommand("quem", handleListSubs)
+	h.HandleCommand("lista", handleListUserTopics)
+	h.HandleCommand("listudo", handleListChatTopics)
+	h.HandleCommand("conta", handleCountEvent)
+	h.HandleCommand("desconta", handleUncountEvent)
 	h.Start()
 }
 
-func handleSubTopic(bot *tg.Bot, u tg.Update) {
+func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -80,25 +66,19 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: err.Error(),
-		})
-		return
+		return err
 	}
 
 	exists, err := mydao.ExistsChatTopic(u.Message.Chat.ID, topic)
 	if err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: err.Error(),
-		})
-		return
+		return err
 	}
 
 	if !exists && u.Message.From.ID != godID {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "macaquearam demais... chega!",
 		})
-		return
+		return err
 	}
 
 	userTopic := dao.UserTopic{
@@ -109,10 +89,12 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 	}
 	if u.Message.ReplyToMessage != nil {
 		if u.Message.ReplyToMessage.From.IsBot {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 				Text: "bot nao pode man",
 			})
-			return
+			if err != nil {
+				return err
+			}
 		}
 		userTopic.UserID = u.Message.ReplyToMessage.From.ID
 		userTopic.Username = username(u.Message.ReplyToMessage.From)
@@ -121,28 +103,26 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) {
 	err = mydao.SaveUserTopic(userTopic)
 	if err, ok := err.(*sqlite.Error); ok &&
 		err.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "já inscrito nesse tópico",
 		})
-		return
+		return err
 	}
 	if err != nil {
 		fmt.Println(err)
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao salvar tópico",
 		})
-		return
+		return err
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: "inscrição adicionada para " + userTopic.Username,
 	})
-	if err != nil {
-		log.Print(err)
-	}
+	return err
 }
 
-func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
+func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -152,10 +132,7 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: err.Error(),
-		})
-		return
+		return err
 	}
 
 	err := mydao.DeleteUserTopic(dao.UserTopic{
@@ -165,21 +142,16 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) {
 		Topic:    topic,
 	})
 	if err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "falha ao descer :/",
-		})
-		return
+		return fmt.Errorf("falha ao descer :/ (%w)", err)
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: "inscrição removida para o tópico " + topic,
 	})
-	if err != nil {
-		log.Print(err)
-	}
+	return err
 }
 
-func handleCreatePoll(bot *tg.Bot, u tg.Update) {
+func handleCreatePoll(bot *tg.Bot, u tg.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -189,27 +161,19 @@ func handleCreatePoll(bot *tg.Bot, u tg.Update) {
 	}
 
 	if question == "" {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "cade o titulo joe",
-		})
-		return
+		return fmt.Errorf("cade o titulo joe")
 	}
 
-	_, err := bot.SendPoll(&tg.SendPollParams{
-		ChatID: tg.ChatID{
-			ID: u.Message.Chat.ID,
-		},
+	_, err := bot.SendPoll(tg.SendPollParams{
+		ChatID:      u.Message.Chat.ID,
 		Question:    question,
 		Options:     []string{"👍🏿", "👎🏻"},
 		IsAnonymous: tg.ToPtr(false),
 	})
-	if err != nil {
-		log.Print(err)
-		return
-	}
+	return err
 }
 
-func handleListSubs(bot *tg.Bot, u tg.Update) {
+func handleListSubs(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -219,25 +183,22 @@ func handleListSubs(bot *tg.Bot, u tg.Update) {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: err.Error(),
-		})
-		return
+		return err
 	}
 
 	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar usuários",
 		})
-		return
+		return err
 	}
 
 	if len(topics) == 0 {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "não tem ninguém inscrito nesse tópico",
 		})
-		return
+		return err
 	}
 
 	txt := "inscritos nesse tópico:\n"
@@ -247,13 +208,10 @@ func handleListSubs(bot *tg.Bot, u tg.Update) {
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: txt,
 	})
-	if err != nil {
-		log.Print(err)
-		return
-	}
+	return err
 }
 
-func handleCallSubs(bot *tg.Bot, u tg.Update) {
+func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -263,38 +221,32 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: err.Error(),
-		})
-		return
+		return err
 	}
 
 	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar usuários",
 		})
-		return
+		return err
 	}
 
 	if len(topics) == 0 {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "não tem ninguém inscrito nesse tópico",
 		})
-		return
+		return err
 	}
 
-	_, err = bot.SendPoll(&tg.SendPollParams{
-		ChatID: tg.ChatID{
-			ID: u.Message.Chat.ID,
-		},
+	_, err = bot.SendPoll(tg.SendPollParams{
+		ChatID:      u.Message.Chat.ID,
 		Question:    topic,
 		Options:     []string{"bo 👍🏿", "bo nao 👎🏻"},
 		IsAnonymous: tg.ToPtr(false),
 	})
 	if err != nil {
-		log.Print(err)
-		return
+		return err
 	}
 
 	txt := ""
@@ -306,8 +258,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) {
 				ParseMode: "MarkdownV2",
 			})
 			if err != nil {
-				log.Print(err)
-				return
+				return err
 			}
 			txt = ""
 		}
@@ -318,29 +269,20 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) {
 			Text:      txt,
 			ParseMode: "MarkdownV2",
 		})
-		if err != nil {
-			log.Print(err)
-			return
-		}
 	}
+	return err
 }
 
-func handleListUserTopics(bot *tg.Bot, u tg.Update) {
+func handleListUserTopics(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := mydao.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
 	if err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "falha ao listar tópicos",
-		})
-		return
+		return fmt.Errorf("falha ao listar tópicos")
 	}
 
 	if len(topics) == 0 {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "você não está inscrito em nenhum tópico",
-		})
-		return
+		return fmt.Errorf("você não está inscrito em nenhum tópico")
 	}
 
 	txt := "seus tópicos:\n"
@@ -351,27 +293,25 @@ func handleListUserTopics(bot *tg.Bot, u tg.Update) {
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: txt,
 	})
-	if err != nil {
-		log.Print(err)
-	}
+	return err
 }
 
-func handleListChatTopics(bot *tg.Bot, u tg.Update) {
+func handleListChatTopics(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := mydao.FindChatTopics(u.Message.Chat.ID)
 	if err != nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar tópicos",
 		})
-		return
+		return err
 	}
 
 	if len(topics) == 0 {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "não existe nenhum tópico registrado nesse chat",
 		})
-		return
+		return err
 	}
 
 	txt := "tópicos:\n"
@@ -382,18 +322,16 @@ func handleListChatTopics(bot *tg.Bot, u tg.Update) {
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: txt,
 	})
-	if err != nil {
-		log.Print(err)
-	}
+	return err
 }
 
-func handleCountEvent(bot *tg.Bot, u tg.Update) {
+func handleCountEvent(bot *tg.Bot, u tg.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	if len(fields) == 1 {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "faltando nome do evento",
 		})
-		return
+		return err
 	}
 
 	event := dao.ChatEvent{
@@ -405,30 +343,26 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) {
 		event.MsgID = u.Message.ReplyToMessage.MessageID
 		event.Time = time.Unix(u.Message.ReplyToMessage.Date, 0)
 		if u.Message.From.ID != godID {
-			_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 				Text: "sai macaco",
 			})
-			return
+			return err
 		}
 
 		err := mydao.SaveChatEvent(event)
-		if err != nil {
-			log.Print(err)
-			return
-		}
+		return err
 	}
 
-	events, err := mydao.FindChatEventsByName(event)
+	events, err := mydao.FindChatEventsByName(event.ChatID, event.Name)
 	if err != nil {
-		log.Print(err)
-		return
+		return err
 	}
 
 	if len(events) == 0 {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: fmt.Sprintf("%s 0 vez(es)", event.Name),
 		})
-		return
+		return err
 	}
 
 	last := time.Now().Sub(events[0].Time)
@@ -444,33 +378,30 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) {
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: txt,
 	})
-	if err != nil {
-		log.Print(err)
-		return
-	}
+	return err
 }
 
-func handleUncountEvent(bot *tg.Bot, u tg.Update) {
+func handleUncountEvent(bot *tg.Bot, u tg.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	if len(fields) == 1 {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "faltando nome do evento",
 		})
-		return
+		return err
 	}
 
 	if u.Message.ReplyToMessage == nil {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "responda a mensagem que quer descontar",
 		})
-		return
+		return err
 	}
 
 	if u.Message.From.ID != godID {
-		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "já disse pra sair, macaco",
 		})
-		return
+		return err
 	}
 
 	event := dao.ChatEvent{
@@ -479,43 +410,40 @@ func handleUncountEvent(bot *tg.Bot, u tg.Update) {
 		Name:   strings.TrimSpace(fields[1]),
 	}
 
-	_, err := mydao.DeleteChatEvent(event)
+	err := mydao.DeleteChatEvent(event)
 	if err != nil {
-		log.Print(err)
-		return
+		return err
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: "descontey",
 	})
-	if err != nil {
-		log.Print(err)
-		return
-	}
+	return err
 }
 
-func handleSpam(bot *tg.Bot, u tg.Update) {
-	if u.Message.From.ID != godID {
-		replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text: "sai man so faço isso pro @igorcafe",
-		})
-		return
-	}
+func handleSpam(bot *tg.Bot, u tg.Update) error {
+	panic("TODO")
+	// if u.Message.From.ID != godID {
+	// 	_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
+	// 		Text: "sai man so faço isso pro @igorcafe",
+	// 	})
+	// 	return err
+	// }
 
 	fields := strings.SplitN(u.Message.Text, " ", 3)
 	if len(fields) != 3 {
-		replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "uso: /spam <quantidade> <mensagem>",
 		})
-		return
+		return err
 	}
 
 	count, err := strconv.Atoi(fields[1])
 	if err != nil {
-		replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: fmt.Sprintf("quantidade inválida: '%s'", fields[1]),
 		})
-		return
+		return err
 	}
 
 	limit := make(chan struct{}, 10)
@@ -523,18 +451,17 @@ func handleSpam(bot *tg.Bot, u tg.Update) {
 	for i := 0; i < count; i++ {
 		limit <- struct{}{}
 		go func() {
-			_, err = bot.SendMessage(&tg.SendMessageParams{
-				ChatID: tg.ChatID{
-					ID: u.Message.Chat.ID,
-				},
-				Text: fields[2],
-			})
-			if err != nil {
-				log.Print(err)
-			}
+			// _, err = bot.SendMessage(tg.SendMessageParams{
+			// 	ChatID: u.Message.Chat.ID,
+			// 	Text:   fields[2],
+			// })
+			// if err != nil {
+			// 	log.Print(err)
+			// }
 			<-limit
 		}()
 	}
+	return nil
 }
 
 func handleAnyMessage(bot *tg.Bot, u tg.Update) {
@@ -556,10 +483,8 @@ func handleAnyMessage(bot *tg.Bot, u tg.Update) {
 	if u.Message.ReplyToMessage != nil {
 		msgID = u.Message.ReplyToMessage.MessageID
 	}
-	_, _ = bot.SendMessage(&tg.SendMessageParams{
-		ChatID: tg.ChatID{
-			ID: u.Message.Chat.ID,
-		},
+	_, _ = bot.SendMessage(tg.SendMessageParams{
+		ChatID:                   u.Message.Chat.ID,
 		Text:                     "perguntadores not found",
 		ReplyToMessageID:         msgID,
 		AllowSendingWithoutReply: true,
@@ -571,12 +496,10 @@ func replyToMessage(bot *tg.Bot, msg *tg.Message, params *tg.SendMessageParams) 
 		params = &tg.SendMessageParams{}
 	}
 
-	params.ChatID = tg.ChatID{
-		ID: msg.Chat.ID,
-	}
+	params.ChatID = msg.Chat.ID
 	params.ReplyToMessageID = msg.MessageID
 
-	return bot.SendMessage(params)
+	return bot.SendMessage(*params)
 }
 
 func validateTopic(topic string) error {
