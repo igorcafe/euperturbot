@@ -53,6 +53,7 @@ func main() {
 	h.HandleCommand("listudo", handleListChatTopics)
 	h.HandleCommand("conta", handleCountEvent)
 	h.HandleCommand("desconta", handleUncountEvent)
+	h.HandlePollAnswer(handlePollAnswer)
 	h.Start()
 }
 
@@ -239,11 +240,30 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	_, err = bot.SendPoll(tg.SendPollParams{
+	msg, err := bot.SendPoll(tg.SendPollParams{
 		ChatID:      u.Message.Chat.ID,
 		Question:    topic,
 		Options:     []string{"bo 👍🏿", "bo nao 👎🏻"},
 		IsAnonymous: tg.ToPtr(false),
+	})
+	if err != nil {
+		return err
+	}
+	poll := msg.Poll
+
+	msg, err = bot.SendMessage(tg.SendMessageParams{
+		ChatID: u.Message.Chat.ID,
+		Text:   "sim (0 votos):\n\nnão (0 votos):",
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mydao.SavePoll(dao.Poll{
+		ID:              poll.ID,
+		ChatID:          u.Message.Chat.ID,
+		Topic:           topic,
+		ResultMessageID: msg.MessageID,
 	})
 	if err != nil {
 		return err
@@ -462,6 +482,62 @@ func handleSpam(bot *tg.Bot, u tg.Update) error {
 		}()
 	}
 	return nil
+}
+
+func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
+	if len(u.PollAnswer.OptionIDs) != 1 {
+		return fmt.Errorf("invalid vote for poll: %+v", u.PollAnswer)
+	}
+
+	err := mydao.SavePollVote(dao.PollVote{
+		PollID: u.PollAnswer.PollID,
+		UserID: u.PollAnswer.User.ID,
+		Vote:   u.PollAnswer.OptionIDs[0],
+	})
+	if err != nil {
+		return err
+	}
+
+	votes, err := mydao.FindPollVotes(u.PollAnswer.PollID)
+	if err != nil {
+		return err
+	}
+	log.Printf("%+v", votes)
+
+	poll, err := mydao.FindPoll(u.PollAnswer.PollID)
+	if err != nil {
+		return err
+	}
+
+	positiveCount := 0
+	positives := ""
+	negativeCount := 0
+	negatives := ""
+
+	for _, vote := range votes {
+		if vote.Vote == 0 {
+			positiveCount++
+			positives += "- " + vote.Username + "\n"
+		} else if vote.Vote == 1 {
+			negativeCount++
+			negatives += "- " + vote.Username + "\n"
+		}
+	}
+
+	txt := fmt.Sprintf(
+		"sim (%d votos):\n%s\nnão (%d votos):\n%s",
+		positiveCount,
+		positives,
+		negativeCount,
+		negatives,
+	)
+
+	_, err = bot.EditMessageText(tg.EditMessageTextParams{
+		ChatID:    poll.ChatID,
+		MessageID: poll.ResultMessageID,
+		Text:      txt,
+	})
+	return err
 }
 
 func handleAnyMessage(bot *tg.Bot, u tg.Update) {

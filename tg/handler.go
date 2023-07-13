@@ -49,6 +49,13 @@ func (uh *UpdateHandler) HandleCommand(cmd string, handler func(bot *Bot, u Upda
 	uh.Handle(criteria, handler)
 }
 
+func (uh *UpdateHandler) HandlePollAnswer(handler func(bot *Bot, u Update) error) {
+	criteria := func(u Update) bool {
+		return u.PollAnswer != nil
+	}
+	uh.Handle(criteria, handler)
+}
+
 func (uh *UpdateHandler) Start() {
 	limit := make(chan struct{}, 10)
 	for update := range uh.source {

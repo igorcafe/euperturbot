@@ -108,8 +108,9 @@ func (bot *Bot) GetUpdatesChannel() chan Update {
 		updateID := 0
 		for {
 			params := GetUpdatesParams{
-				Offset:  updateID,
-				Timeout: 5,
+				Offset:         updateID,
+				Timeout:        5,
+				AllowedUpdates: []string{"message", "poll", "poll_answer"},
 			}
 			updates, err := bot.GetUpdates(params)
 			if err != nil {
@@ -143,6 +144,14 @@ func (bot *Bot) SendMessage(params SendMessageParams) (*Message, error) {
 	// h.Set("Content-Type", "application/json")
 
 	res, err := apiJSONRequest[Message](bot, "sendMessage", params)
+	if err != nil {
+		return nil, err
+	}
+	return &res.Result, nil
+}
+
+func (bot *Bot) EditMessageText(params EditMessageTextParams) (*Message, error) {
+	res, err := apiJSONRequest[Message](bot, "editMessageText", params)
 	if err != nil {
 		return nil, err
 	}
