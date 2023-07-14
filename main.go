@@ -127,7 +127,7 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-		Text: "inscrição adicionada para " + userTopic.Username,
+		Text: "inscrição adicionada para " + user.Name(),
 	})
 	return err
 }
