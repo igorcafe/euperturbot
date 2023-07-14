@@ -211,6 +211,11 @@ func TestPollVote(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	_, err = mydao.FindPoll("poll")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = mydao.SavePollVote(dao.PollVote{
 		PollID: "poll",
 		UserID: 1,
