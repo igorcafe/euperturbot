@@ -68,7 +68,7 @@ func (dao *DAO) Close() error {
 	return dao.db.Close()
 }
 
-func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) []any) ([]E, error) {
+func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) map[string]any) ([]E, error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -81,11 +81,27 @@ func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) []any
 		}
 	}()
 
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
 	var res []E
 
 	for rows.Next() {
 		var e E
-		err := rows.Scan(dest(&e)...)
+		m := dest(&e)
+		var discard any
+		args := make([]any, len(cols))
+		for i := range args {
+			args[i] = &discard
+		}
+		for i, col := range cols {
+			if p, ok := m[col]; ok {
+				args[i] = p
+			}
+		}
+		err := rows.Scan(args...)
 		if err != nil {
 			return nil, err
 		}
@@ -137,20 +153,24 @@ func (dao *DAO) DeleteUserTopic(topic UserTopic) error {
 
 func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 	sql := `
-		SELECT * FROM user_topic
+		SELECT ut.*, u.username FROM user_topic ut
+		INNER JOIN user u ON u.id = ut.user_id
 		WHERE chat_id = $1 AND user_id = $2
 	`
 	return querySlice[UserTopic](
 		dao.db,
 		sql,
 		[]any{chatID, userID},
-		func(t *UserTopic) []any {
-			return []any{&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic}
+		func(t *UserTopic) map[string]any {
+			return map[string]any{
+				"id":      &t.ID,
+				"chat_id": &t.ChatID,
+				"user_id": &t.UserID,
+				"topic":   &t.Topic,
+			}
 		},
 	)
 }
-
-type nextFn func() nextFn
 
 func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	sql := `
@@ -162,8 +182,13 @@ func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 		dao.db,
 		sql,
 		[]any{chatID},
-		func(t *UserTopic) []any {
-			return []any{&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic}
+		func(t *UserTopic) map[string]any {
+			return map[string]any{
+				"id":      &t.ID,
+				"chat_id": &t.ChatID,
+				"user_id": &t.UserID,
+				"topic":   &t.Topic,
+			}
 		},
 	)
 }
@@ -177,8 +202,13 @@ func (dao *DAO) FindSubscriptionsByTopic(chatID int64, topic string) ([]UserTopi
 		dao.db,
 		sql,
 		[]any{chatID, topic},
-		func(t *UserTopic) []any {
-			return []any{&t.ID, &t.ChatID, &t.UserID, &t.Username, &t.Topic}
+		func(t *UserTopic) map[string]any {
+			return map[string]any{
+				"id":      &t.ID,
+				"chat_id": &t.ChatID,
+				"user_id": &t.UserID,
+				"topic":   &t.Topic,
+			}
 		},
 	)
 }
@@ -204,7 +234,7 @@ func (dao *DAO) SaveChatEvent(e ChatEvent) error {
 
 func (dao *DAO) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, error) {
 	sql := `
-		SELECT id, chat_id, msg_id, time, name FROM event
+		SELECT * FROM event
 		WHERE chat_id = $1 AND name = $2
 		ORDER BY time DESC
 	`
@@ -212,8 +242,14 @@ func (dao *DAO) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, er
 		dao.db,
 		sql,
 		[]any{chatID, name},
-		func(e *ChatEvent) []any {
-			return []any{&e.ID, &e.ChatID, &e.MsgID, &e.Time, &e.Name}
+		func(e *ChatEvent) map[string]any {
+			return map[string]any{
+				"id":      &e.ID,
+				"chat_id": &e.ChatID,
+				"msg_id":  &e.MsgID,
+				"time":    &e.Time,
+				"name":    &e.Name,
+			}
 		},
 	)
 }
@@ -275,14 +311,19 @@ func (dao *DAO) SavePollVote(v PollVote) error {
 func (dao *DAO) FindPollVotes(pollID string) ([]PollVote, error) {
 	sql := `
 		SELECT v.poll_id, v.user_id, u.username, v.vote FROM poll_vote AS v
+		INNER JOIN user u ON u.id = v.user_id
 		WHERE poll_id = $1
 	`
 	return querySlice[PollVote](
 		dao.db,
 		sql,
 		[]any{pollID},
-		func(v *PollVote) []any {
-			return []any{&v.PollID, &v.UserID, &v.Username, &v.Vote}
+		func(e *PollVote) map[string]any {
+			return map[string]any{
+				"poll_id": &e.PollID,
+				"user_id": &e.UserID,
+				"vote":    &e.Vote,
+			}
 		},
 	)
 }
