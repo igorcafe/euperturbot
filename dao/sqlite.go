@@ -327,10 +327,9 @@ func (dao *DAO) FindPoll(pollID string) (*Poll, error) {
 }
 
 type PollVote struct {
-	PollID   string
-	UserID   int64
-	Username string
-	Vote     int
+	PollID string
+	UserID int64
+	Vote   int
 }
 
 func (dao *DAO) SavePollVote(v PollVote) error {
@@ -341,6 +340,14 @@ func (dao *DAO) SavePollVote(v PollVote) error {
 		ON CONFLICT DO UPDATE SET vote = $3
 	`, v.PollID, v.UserID, v.Vote)
 
+	return err
+}
+
+func (dao *DAO) DeletePollVote(pollID string, userID int64) error {
+	_, err := dao.db.Exec(`
+		DELETE FROM poll_vote
+		WHERE poll_id = $1 AND user_id = $2
+	`, pollID, userID)
 	return err
 }
 

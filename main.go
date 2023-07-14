@@ -265,7 +265,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 
 	msg, err = bot.SendMessage(tg.SendMessageParams{
 		ChatID: u.Message.Chat.ID,
-		Text:   "sim (0 votos):\n\nnão (0 votos):",
+		Text:   "votos dos inscritos no tópico\n\nsim (0 votos):\n\nnão (0 votos):",
 	})
 	if err != nil {
 		return err
@@ -501,15 +501,17 @@ func handleSpam(bot *tg.Bot, u tg.Update) error {
 }
 
 func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
-	if len(u.PollAnswer.OptionIDs) != 1 {
-		return fmt.Errorf("invalid vote for poll: %+v", u.PollAnswer)
-	}
+	var err error
 
-	err := mydao.SavePollVote(dao.PollVote{
-		PollID: u.PollAnswer.PollID,
-		UserID: u.PollAnswer.User.ID,
-		Vote:   u.PollAnswer.OptionIDs[0],
-	})
+	if len(u.PollAnswer.OptionIDs) == 0 {
+		err = mydao.DeletePollVote(u.PollAnswer.PollID, u.PollAnswer.User.ID)
+	} else {
+		err = mydao.SavePollVote(dao.PollVote{
+			PollID: u.PollAnswer.PollID,
+			UserID: u.PollAnswer.User.ID,
+			Vote:   u.PollAnswer.OptionIDs[0],
+		})
+	}
 	if err != nil {
 		return err
 	}
@@ -518,7 +520,6 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("%+v", votes)
 
 	poll, err := mydao.FindPoll(u.PollAnswer.PollID)
 	if err != nil {
@@ -546,7 +547,7 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	}
 
 	txt := fmt.Sprintf(
-		"sim (%d votos):\n%s\nnão (%d votos):\n%s",
+		"votos dos inscritos no tópico\n\nsim (%d votos):\n%s\nnão (%d votos):\n%s",
 		positiveCount,
 		positives,
 		negativeCount,
