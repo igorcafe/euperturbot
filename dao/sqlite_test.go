@@ -230,6 +230,11 @@ func TestPollVote(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	err = mydao.DeletePollVote("poll", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if len(votes) == 0 {
 		t.Fatal("want: 1 poll vote, got: none")
 	}
