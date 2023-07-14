@@ -73,7 +73,10 @@ func (uh *UpdateHandler) Start() {
 					defer func() {
 						<-limit
 					}()
-					handler.handler(uh.bot, update)
+					err := handler.handler(uh.bot, update)
+					if err != nil {
+						log.Print(err)
+					}
 				}()
 			}
 		}
