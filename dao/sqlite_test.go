@@ -15,12 +15,27 @@ func TestUserTopic(t *testing.T) {
 	}
 	defer mydao.Close()
 
+	err = mydao.SaveUser(dao.User{
+		ID:       1,
+		Username: "me",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = mydao.SaveUser(dao.User{
+		ID:       2,
+		Username: "you",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// me: /sub game
 	err = mydao.SaveUserTopic(dao.UserTopic{
-		ChatID:   1,
-		UserID:   1,
-		Username: "me",
-		Topic:    "game",
+		ChatID: 1,
+		UserID: 1,
+		Topic:  "game",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -28,10 +43,9 @@ func TestUserTopic(t *testing.T) {
 
 	// you: sub game
 	err = mydao.SaveUserTopic(dao.UserTopic{
-		ChatID:   1,
-		UserID:   2,
-		Username: "you",
-		Topic:    "game",
+		ChatID: 1,
+		UserID: 2,
+		Topic:  "game",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -39,10 +53,9 @@ func TestUserTopic(t *testing.T) {
 
 	// you: sub other
 	err = mydao.SaveUserTopic(dao.UserTopic{
-		ChatID:   1,
-		UserID:   2,
-		Username: "you",
-		Topic:    "other",
+		ChatID: 1,
+		UserID: 2,
+		Topic:  "other",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -74,8 +87,19 @@ func TestUserTopic(t *testing.T) {
 	if len(topics) != 2 {
 		t.Fatal("topic 'game' not found for user 'me'")
 	}
-	if topics[0].Username != "me" || topics[1].Username != "you" {
-		t.Fatalf("unexpected subscriptions for topic 'game': %s, %s", topics[0].Username, topics[1].Username)
+
+	u1, err := mydao.FindUser(topics[0].UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	u2, err := mydao.FindUser(topics[1].UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if u1.Username != "me" || u2.Username != "you" {
+		t.Fatalf("unexpected subscriptions for topic 'game': %s, %s", u1.Username, u2.Username)
 	}
 
 	topics, err = mydao.FindChatTopics(1)
@@ -169,6 +193,13 @@ func TestPollVote(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer mydao.Close()
+
+	err = mydao.SaveUser(dao.User{
+		ID: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	err = mydao.SavePoll(dao.Poll{
 		ID:              "poll",

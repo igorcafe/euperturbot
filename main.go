@@ -82,25 +82,34 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	userTopic := dao.UserTopic{
-		ChatID:   u.Message.Chat.ID,
-		UserID:   u.Message.From.ID,
-		Username: username(u.Message.From),
-		Topic:    topic,
+	user := dao.User{
+		ID:        u.Message.From.ID,
+		FirstName: sanitizeUsername(u.Message.From.FirstName),
+		Username:  sanitizeUsername(u.Message.From.Username),
 	}
+
 	if u.Message.ReplyToMessage != nil {
 		if u.Message.ReplyToMessage.From.IsBot {
 			_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 				Text: "bot nao pode man",
 			})
-			if err != nil {
-				return err
-			}
+			return err
 		}
-		userTopic.UserID = u.Message.ReplyToMessage.From.ID
-		userTopic.Username = username(u.Message.ReplyToMessage.From)
+		user.ID = u.Message.ReplyToMessage.From.ID
+		user.FirstName = sanitizeUsername(u.Message.ReplyToMessage.From.FirstName)
+		user.Username = sanitizeUsername(u.Message.ReplyToMessage.From.Username)
 	}
 
+	err = mydao.SaveUser(user)
+	if err != nil {
+		return err
+	}
+
+	userTopic := dao.UserTopic{
+		ChatID: u.Message.Chat.ID,
+		UserID: user.ID,
+		Topic:  topic,
+	}
 	err = mydao.SaveUserTopic(userTopic)
 	if err, ok := err.(*sqlite.Error); ok &&
 		err.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
@@ -137,10 +146,9 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
 	}
 
 	err := mydao.DeleteUserTopic(dao.UserTopic{
-		ChatID:   u.Message.Chat.ID,
-		UserID:   u.Message.From.ID,
-		Username: username(u.Message.From),
-		Topic:    topic,
+		ChatID: u.Message.Chat.ID,
+		UserID: u.Message.From.ID,
+		Topic:  topic,
 	})
 	if err != nil {
 		return fmt.Errorf("falha ao descer :/ (%w)", err)
@@ -204,7 +212,11 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 
 	txt := "inscritos nesse tópico:\n"
 	for _, t := range topics {
-		txt += fmt.Sprintf("- %s\n", t.Username)
+		user, err := mydao.FindUser(t.UserID)
+		if err != nil {
+			return err
+		}
+		txt += fmt.Sprintf("- %s\n", user.Name())
 	}
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 		Text: txt,
@@ -271,7 +283,11 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 
 	txt := ""
 	for i, t := range topics {
-		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", t.Username, t.UserID)
+		user, err := mydao.FindUser(t.UserID)
+		if err != nil {
+			return err
+		}
+		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", user.Name(), t.UserID)
 		if (i+1)%4 == 0 {
 			_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 				Text:      txt,
@@ -515,12 +531,17 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	negatives := ""
 
 	for _, vote := range votes {
+		user, err := mydao.FindUser(vote.UserID)
+		if err != nil {
+			return err
+		}
+
 		if vote.Vote == 0 {
 			positiveCount++
-			positives += "- " + vote.Username + "\n"
+			positives += "- " + user.Name() + "\n"
 		} else if vote.Vote == 1 {
 			negativeCount++
-			negatives += "- " + vote.Username + "\n"
+			negatives += "- " + user.Name() + "\n"
 		}
 	}
 

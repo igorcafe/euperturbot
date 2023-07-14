@@ -22,6 +22,11 @@ func NewSqlite(dsn string) (*DAO, error) {
 	}
 
 	migrations := `
+		CREATE TABLE IF NOT EXISTS user (
+			id INTEGER PRIMARY KEY,
+			username TEXT NOT NULL,
+			first_name TEXT NOT NULL
+		);
 
 		CREATE TABLE IF NOT EXISTS user_topic (
 			id INTEGER PRIMARY KEY,
@@ -111,12 +116,43 @@ func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) map[s
 	return res, rows.Err()
 }
 
+type User struct {
+	ID        int64
+	FirstName string
+	Username  string
+}
+
+func (u *User) Name() string {
+	if u.Username != "" {
+		return u.Username
+	}
+	return u.FirstName
+}
+
+func (dao *DAO) SaveUser(u User) error {
+	_, err := dao.db.Exec(`
+		INSERT INTO user
+		(id, first_name, username)
+		VALUES ($1, $2, $3)
+		ON CONFLICT DO UPDATE
+		SET first_name = $2, username = $3
+	`, u.ID, u.FirstName, u.Username)
+
+	return err
+}
+
+func (dao *DAO) FindUser(id int64) (*User, error) {
+	row := dao.db.QueryRow(`SELECT * FROM user WHERE id = $1`, id)
+	var u User
+	err := row.Scan(&u.ID, &u.Username, &u.FirstName)
+	return &u, err
+}
+
 type UserTopic struct {
-	ID       int64
-	ChatID   int64
-	UserID   int64
-	Username string
-	Topic    string
+	ID     int64
+	ChatID int64
+	UserID int64
+	Topic  string
 }
 
 func (dao *DAO) ExistsChatTopic(chatID int64, topic string) (bool, error) {
@@ -135,9 +171,9 @@ func (dao *DAO) ExistsChatTopic(chatID int64, topic string) (bool, error) {
 func (dao *DAO) SaveUserTopic(topic UserTopic) error {
 	_, err := dao.db.Exec(`
 		INSERT INTO user_topic
-		(chat_id, user_id, username, topic)
-		VALUES ($1, $2, $3, $4)
-	`, topic.ChatID, topic.UserID, topic.Username, topic.Topic)
+		(chat_id, user_id, topic)
+		VALUES ($1, $2, $3)
+	`, topic.ChatID, topic.UserID, topic.Topic)
 
 	return err
 }
