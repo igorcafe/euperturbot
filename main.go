@@ -120,7 +120,7 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 	}
 	if err != nil {
 		fmt.Println(err)
-		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao salvar tópico",
 		})
 		return err
@@ -197,7 +197,7 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 
 	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
-		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar usuários",
 		})
 		return err
@@ -239,14 +239,14 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 
 	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
-		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar usuários",
 		})
 		return err
 	}
 
 	if len(topics) == 0 {
-		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "não tem ninguém inscrito nesse tópico",
 		})
 		return err
@@ -337,7 +337,7 @@ func handleListChatTopics(bot *tg.Bot, u tg.Update) error {
 
 	topics, err := mydao.FindChatTopics(u.Message.Chat.ID)
 	if err != nil {
-		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar tópicos",
 		})
 		return err
@@ -476,7 +476,7 @@ func handleSpam(bot *tg.Bot, u tg.Update) error {
 
 	count, err := strconv.Atoi(fields[1])
 	if err != nil {
-		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
+		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: fmt.Sprintf("quantidade inválida: '%s'", fields[1]),
 		})
 		return err
