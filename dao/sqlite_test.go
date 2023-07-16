@@ -1,21 +1,20 @@
-package dao_test
+package dao
 
 import (
 	"testing"
 	"time"
 
 	_ "github.com/glebarez/go-sqlite"
-	"github.com/igoracmelo/euperturbot/dao"
 )
 
 func TestUserTopic(t *testing.T) {
-	mydao, err := dao.NewSqlite(":memory:")
+	mydao, err := NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer mydao.Close()
 
-	err = mydao.SaveUser(dao.User{
+	err = mydao.SaveUser(User{
 		ID:       1,
 		Username: "me",
 	})
@@ -23,7 +22,7 @@ func TestUserTopic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = mydao.SaveUser(dao.User{
+	err = mydao.SaveUser(User{
 		ID:       2,
 		Username: "you",
 	})
@@ -32,7 +31,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// me: /sub game
-	err = mydao.SaveUserTopic(dao.UserTopic{
+	err = mydao.SaveUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 1,
 		Topic:  "game",
@@ -42,7 +41,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// you: sub game
-	err = mydao.SaveUserTopic(dao.UserTopic{
+	err = mydao.SaveUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 2,
 		Topic:  "game",
@@ -52,7 +51,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// you: sub other
-	err = mydao.SaveUserTopic(dao.UserTopic{
+	err = mydao.SaveUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 2,
 		Topic:  "other",
@@ -114,7 +113,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// me: /unsub game
-	err = mydao.DeleteUserTopic(dao.UserTopic{
+	err = mydao.DeleteUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 1,
 		Topic:  "game",
@@ -124,7 +123,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// you: unsub game
-	err = mydao.DeleteUserTopic(dao.UserTopic{
+	err = mydao.DeleteUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 2,
 		Topic:  "game",
@@ -143,13 +142,13 @@ func TestUserTopic(t *testing.T) {
 }
 
 func TestChatEvent(t *testing.T) {
-	mydao, err := dao.NewSqlite(":memory:")
+	mydao, err := NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer mydao.Close()
 
-	err = mydao.SaveChatEvent(dao.ChatEvent{
+	err = mydao.SaveChatEvent(ChatEvent{
 		ChatID: 1,
 		MsgID:  1,
 		Time:   time.Time{},
@@ -168,7 +167,7 @@ func TestChatEvent(t *testing.T) {
 		t.Fatalf("want: 1 event, got: %+v", events)
 	}
 
-	err = mydao.DeleteChatEvent(dao.ChatEvent{
+	err = mydao.DeleteChatEvent(ChatEvent{
 		ChatID: 1,
 		MsgID:  1,
 		Name:   "event1",
@@ -188,20 +187,20 @@ func TestChatEvent(t *testing.T) {
 }
 
 func TestPollVote(t *testing.T) {
-	mydao, err := dao.NewSqlite(":memory:")
+	mydao, err := NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer mydao.Close()
 
-	err = mydao.SaveUser(dao.User{
+	err = mydao.SaveUser(User{
 		ID: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = mydao.SavePoll(dao.Poll{
+	err = mydao.SavePoll(Poll{
 		ID:              "poll",
 		ChatID:          1,
 		Topic:           "topic",
@@ -216,7 +215,7 @@ func TestPollVote(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = mydao.SavePollVote(dao.PollVote{
+	err = mydao.SavePollVote(PollVote{
 		PollID: "poll",
 		UserID: 1,
 		Vote:   1,
