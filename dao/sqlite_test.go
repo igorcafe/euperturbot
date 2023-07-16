@@ -238,3 +238,15 @@ func TestPollVote(t *testing.T) {
 		t.Fatal("want: 1 poll vote, got: none")
 	}
 }
+
+func Test_queryRow(t *testing.T) {
+	dao, err := NewSqlite(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var u User
+	err = queryRow(dao.db, &u, `SELECT * FROM user`)
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("want: %v, got: %v", sql.ErrNoRows, err)
+	}
+}
