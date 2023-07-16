@@ -10,6 +10,10 @@ type DAO struct {
 	db *sql.DB
 }
 
+type ColumnMapper interface {
+	ColumnMap() map[string]any
+}
+
 func NewSqlite(dsn string) (*DAO, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -73,6 +77,48 @@ func (dao *DAO) Close() error {
 	return dao.db.Close()
 }
 
+func scanCols(rows *sql.Rows, colNames []string, entity ColumnMapper) error {
+	dest := make([]any, len(colNames))
+	var discard any
+	for i := range dest {
+		dest[i] = &discard
+	}
+
+	m := entity.ColumnMap()
+	for i, col := range colNames {
+		ptr, ok := m[col]
+		if ok {
+			dest[i] = ptr
+		}
+	}
+
+	return rows.Scan(dest...)
+}
+
+func queryRow(db *sql.DB, dest ColumnMapper, query string, args ...any) error {
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+
+	if !rows.Next() {
+		err = rows.Err()
+		if err == nil {
+			return sql.ErrNoRows
+		}
+		return err
+	}
+
+	err = scanCols(rows, cols, dest)
+	return err
+}
+
 func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) map[string]any) ([]E, error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -129,6 +175,14 @@ func (u *User) Name() string {
 	return u.FirstName
 }
 
+func (u *User) ColumnMap() map[string]any {
+	return map[string]any{
+		"id":         &u.ID,
+		"username":   &u.Username,
+		"first_name": &u.FirstName,
+	}
+}
+
 func (dao *DAO) SaveUser(u User) error {
 	_, err := dao.db.Exec(`
 		INSERT INTO user
@@ -142,9 +196,8 @@ func (dao *DAO) SaveUser(u User) error {
 }
 
 func (dao *DAO) FindUser(id int64) (*User, error) {
-	row := dao.db.QueryRow(`SELECT * FROM user WHERE id = $1`, id)
 	var u User
-	err := row.Scan(&u.ID, &u.Username, &u.FirstName)
+	err := queryRow(dao.db, &u, `SELECT * FROM user WHERE id = $1`, id)
 	return &u, err
 }
 
@@ -305,6 +358,15 @@ type Poll struct {
 	ResultMessageID int
 }
 
+func (p *Poll) ColumnMap() map[string]any {
+	return map[string]any{
+		"id":                &p.ID,
+		"chat_id":           &p.ChatID,
+		"topic":             &p.Topic,
+		"result_message_id": &p.ResultMessageID,
+	}
+}
+
 func (dao *DAO) SavePoll(p Poll) error {
 	_, err := dao.db.Exec(`
 		INSERT INTO poll
@@ -316,13 +378,8 @@ func (dao *DAO) SavePoll(p Poll) error {
 }
 
 func (dao *DAO) FindPoll(pollID string) (*Poll, error) {
-	row := dao.db.QueryRow(`
-		SELECT * FROM poll
-		WHERE id = $1
-	`, pollID)
-
 	var p Poll
-	err := row.Scan(&p.ID, &p.ChatID, &p.Topic, &p.ResultMessageID)
+	err := queryRow(dao.db, &p, `SELECT * FROM poll WHERE id = $1`, pollID)
 	return &p, err
 }
 
@@ -330,6 +387,14 @@ type PollVote struct {
 	PollID string
 	UserID int64
 	Vote   int
+}
+
+func (v *PollVote) ColumnMap() map[string]any {
+	return map[string]any{
+		"poll_id": &v.PollID,
+		"user_d":  &v.UserID,
+		"vote":    &v.Vote,
+	}
 }
 
 func (dao *DAO) SavePollVote(v PollVote) error {
@@ -369,4 +434,13 @@ func (dao *DAO) FindPollVotes(pollID string) ([]PollVote, error) {
 			}
 		},
 	)
+}
+
+func (dao *DAO) FindPollVote(pollID string, userID int64) (*PollVote, error) {
+	var v PollVote
+	err := queryRow(dao.db, &v, `
+		SELECT * FROM poll_vote
+		WHERE poll_id = $1 AND user_id = $2
+	`, pollID, userID)
+	return &v, err
 }
