@@ -212,12 +212,13 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	txt := "inscritos nesse tópico:\n"
+	txt := fmt.Sprintf("*inscritos \\(%d\\)*\n", len(users))
 	for _, user := range users {
-		txt += fmt.Sprintf("- %s\n", user.Name())
+		txt += fmt.Sprintf("\\- %s\n", user.Name())
 	}
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-		Text: txt,
+		Text:      txt,
+		ParseMode: "MarkdownV2",
 	})
 	return err
 }
@@ -308,7 +309,7 @@ func handleListUserTopics(bot *tg.Bot, u tg.Update) error {
 
 	txt := "seus tópicos:\n"
 	for _, topic := range topics {
-		txt += "- " + topic.Topic + "\n"
+		txt += fmt.Sprintf("- (%02d)  %s\n", topic.Subscribers, topic.Topic)
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
@@ -337,7 +338,7 @@ func handleListChatTopics(bot *tg.Bot, u tg.Update) error {
 
 	txt := "tópicos:\n"
 	for _, topic := range topics {
-		txt += "- " + topic.Topic + "\n"
+		txt += fmt.Sprintf("- (%02d)  %s\n", topic.Subscribers, topic.Topic)
 	}
 
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{

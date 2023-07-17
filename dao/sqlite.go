@@ -243,7 +243,12 @@ func (dao *DAO) DeleteUserTopic(topic UserTopic) error {
 
 func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 	sql := `
-		SELECT * FROM user_topic
+		SELECT *, (
+			SELECT COUNT(*) FROM user_topic
+			WHERE chat_id = $1 AND topic = ut.topic
+			GROUP BY topic
+		) AS subscribers
+		FROM user_topic ut
 		WHERE chat_id = $1 AND user_id = $2
 	`
 	return querySlice[UserTopic](
@@ -252,10 +257,11 @@ func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 		[]any{chatID, userID},
 		func(t *UserTopic) map[string]any {
 			return map[string]any{
-				"id":      &t.ID,
-				"chat_id": &t.ChatID,
-				"user_id": &t.UserID,
-				"topic":   &t.Topic,
+				"id":          &t.ID,
+				"chat_id":     &t.ChatID,
+				"user_id":     &t.UserID,
+				"topic":       &t.Topic,
+				"subscribers": &t.Subscribers,
 			}
 		},
 	)
