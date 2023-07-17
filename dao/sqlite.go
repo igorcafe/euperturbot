@@ -202,10 +202,11 @@ func (dao *DAO) FindUser(id int64) (*User, error) {
 }
 
 type UserTopic struct {
-	ID     int64
-	ChatID int64
-	UserID int64
-	Topic  string
+	ID          int64
+	ChatID      int64
+	UserID      int64
+	Topic       string
+	Subscribers int
 }
 
 func (dao *DAO) ExistsChatTopic(chatID int64, topic string) (bool, error) {
@@ -263,9 +264,10 @@ func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 
 func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	sql := `
-		SELECT DISTINCT * FROM user_topic
+		SELECT DISTINCT *, COUNT(*) AS subscribers FROM user_topic
 		WHERE chat_id = $1
-		GROUP BY topic
+		GROUP BY topic, chat_id
+		ORDER BY subscribers DESC
 	`
 	return querySlice[UserTopic](
 		dao.db,
@@ -273,10 +275,11 @@ func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 		[]any{chatID},
 		func(t *UserTopic) map[string]any {
 			return map[string]any{
-				"id":      &t.ID,
-				"chat_id": &t.ChatID,
-				"user_id": &t.UserID,
-				"topic":   &t.Topic,
+				"id":          &t.ID,
+				"chat_id":     &t.ChatID,
+				"user_id":     &t.UserID,
+				"topic":       &t.Topic,
+				"subscribers": &t.Subscribers,
 			}
 		},
 	)
