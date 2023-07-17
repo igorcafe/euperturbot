@@ -1,6 +1,8 @@
 package dao
 
 import (
+	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -79,26 +81,26 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// /who game
-	topics, err = mydao.FindSubscriptionsByTopic(1, "game")
+	users, err := mydao.FindUsersByTopic(1, "game")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(topics) != 2 {
+	if len(users) != 2 {
 		t.Fatal("topic 'game' not found for user 'me'")
 	}
 
-	u1, err := mydao.FindUser(topics[0].UserID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	u2, err := mydao.FindUser(topics[1].UserID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	u1 := users[0]
+	u2 := users[1]
 	if u1.Username != "me" || u2.Username != "you" {
 		t.Fatalf("unexpected subscriptions for topic 'game': %s, %s", u1.Username, u2.Username)
+	}
+
+	up, err := mydao.FindUser(u1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if up.Username != "me" {
+		t.Fatalf("want: %+v, got: %+v", u1, *up)
 	}
 
 	topics, err = mydao.FindChatTopics(1)

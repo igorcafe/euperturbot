@@ -284,21 +284,21 @@ func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	)
 }
 
-func (dao *DAO) FindSubscriptionsByTopic(chatID int64, topic string) ([]UserTopic, error) {
+func (dao *DAO) FindUsersByTopic(chatID int64, topic string) ([]User, error) {
 	sql := `
-		SELECT * FROM user_topic
-		WHERE chat_id = $1 AND topic = $2
+		SELECT u.* FROM user u
+		JOIN user_topic ut ON u.id = ut.user_id
+		WHERE ut.chat_id = $1 AND ut.topic = $2
 	`
-	return querySlice[UserTopic](
+	return querySlice[User](
 		dao.db,
 		sql,
 		[]any{chatID, topic},
-		func(t *UserTopic) map[string]any {
+		func(u *User) map[string]any {
 			return map[string]any{
-				"id":      &t.ID,
-				"chat_id": &t.ChatID,
-				"user_id": &t.UserID,
-				"topic":   &t.Topic,
+				"id":         &u.ID,
+				"username":   &u.Username,
+				"first_name": &u.FirstName,
 			}
 		},
 	)

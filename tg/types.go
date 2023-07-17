@@ -27,6 +27,7 @@ type EditMessageTextParams struct {
 	ChatID    int64  `json:"chat_id"`
 	MessageID int    `json:"message_id"`
 	Text      string `json:"text,omitempty"`
+	ParseMode string `json:"parse_mode,omitempty"`
 }
 
 type SendPollParams struct {

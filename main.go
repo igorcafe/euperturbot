@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -195,7 +197,7 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
+	users, err := mydao.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar usuários",
@@ -203,7 +205,7 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	if len(topics) == 0 {
+	if len(users) == 0 {
 		_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "não tem ninguém inscrito nesse tópico",
 		})
@@ -211,11 +213,7 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 	}
 
 	txt := "inscritos nesse tópico:\n"
-	for _, t := range topics {
-		user, err := mydao.FindUser(t.UserID)
-		if err != nil {
-			return err
-		}
+	for _, user := range users {
 		txt += fmt.Sprintf("- %s\n", user.Name())
 	}
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
@@ -234,10 +232,13 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if err := validateTopic(topic); err != nil {
+		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: err.Error(),
+		})
 		return err
 	}
 
-	topics, err := mydao.FindSubscriptionsByTopic(u.Message.Chat.ID, topic)
+	users, err := mydao.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "falha ao listar usuários",
@@ -245,7 +246,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	if len(topics) == 0 {
+	if len(users) == 0 {
 		_, _ = replyToMessage(bot, u.Message, &tg.SendMessageParams{
 			Text: "não tem ninguém inscrito nesse tópico",
 		})
@@ -263,9 +264,18 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 	}
 	poll := msg.Poll
 
+	txt := fmt.Sprintf("*sim \\(0 votos\\)*\n\n"+
+		"*não \\(0 votos\\)*\n\n"+
+		"*restam \\(%d votos\\)*\n", len(users))
+
+	for _, u := range users {
+		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", u.Name(), u.ID)
+	}
+
 	msg, err = bot.SendMessage(tg.SendMessageParams{
-		ChatID: u.Message.Chat.ID,
-		Text:   "votos dos inscritos no tópico\n\nsim (0 votos):\n\nnão (0 votos):",
+		ChatID:    u.Message.Chat.ID,
+		Text:      txt,
+		ParseMode: "MarkdownV2",
 	})
 	if err != nil {
 		return err
@@ -281,31 +291,6 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	txt := ""
-	for i, t := range topics {
-		user, err := mydao.FindUser(t.UserID)
-		if err != nil {
-			return err
-		}
-		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", user.Name(), t.UserID)
-		if (i+1)%4 == 0 {
-			_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-				Text:      txt,
-				ParseMode: "MarkdownV2",
-			})
-			if err != nil {
-				return err
-			}
-			txt = ""
-		}
-	}
-
-	if txt != "" {
-		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-			Text:      txt,
-			ParseMode: "MarkdownV2",
-		})
-	}
 	return err
 }
 
@@ -516,12 +501,12 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	votes, err := mydao.FindPollVotes(u.PollAnswer.PollID)
+	poll, err := mydao.FindPoll(u.PollAnswer.PollID)
 	if err != nil {
 		return err
 	}
 
-	poll, err := mydao.FindPoll(u.PollAnswer.PollID)
+	users, err := mydao.FindUsersByTopic(poll.ChatID, poll.Topic)
 	if err != nil {
 		return err
 	}
@@ -530,34 +515,48 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	positives := ""
 	negativeCount := 0
 	negatives := ""
+	remainingCount := 0
+	remainings := ""
 
-	for _, vote := range votes {
-		user, err := mydao.FindUser(vote.UserID)
-		if err != nil {
+	for _, u := range users {
+		mention := fmt.Sprintf("[%s](tg://user?id=%d)\n", u.Name(), u.ID)
+
+		vote, err := mydao.FindPollVote(poll.ID, u.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			remainings += mention
+			remainingCount++
+			continue
+		} else if err != nil {
 			return err
 		}
 
-		if vote.Vote == 0 {
+		const yes = 0
+		const no = 1
+
+		if vote.Vote == yes {
 			positiveCount++
-			positives += "- " + user.Name() + "\n"
-		} else if vote.Vote == 1 {
+			positives += mention
+		} else if vote.Vote == no {
 			negativeCount++
-			negatives += "- " + user.Name() + "\n"
+			negatives += mention
 		}
 	}
 
 	txt := fmt.Sprintf(
-		"votos dos inscritos no tópico\n\nsim (%d votos):\n%s\nnão (%d votos):\n%s",
+		"*sim \\(%d votos\\)*\n%s\n*não \\(%d votos\\)*\n%s\n*restam \\(%d votos\\)*\n%s",
 		positiveCount,
 		positives,
 		negativeCount,
 		negatives,
+		remainingCount,
+		remainings,
 	)
 
 	_, err = bot.EditMessageText(tg.EditMessageTextParams{
 		ChatID:    poll.ChatID,
 		MessageID: poll.ResultMessageID,
 		Text:      txt,
+		ParseMode: "MarkdownV2",
 	})
 	return err
 }
