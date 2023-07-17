@@ -243,8 +243,7 @@ func (dao *DAO) DeleteUserTopic(topic UserTopic) error {
 
 func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 	sql := `
-		SELECT ut.*, u.username FROM user_topic ut
-		INNER JOIN user u ON u.id = ut.user_id
+		SELECT * FROM user_topic
 		WHERE chat_id = $1 AND user_id = $2
 	`
 	return querySlice[UserTopic](
@@ -421,8 +420,7 @@ func (dao *DAO) DeletePollVote(pollID string, userID int64) error {
 
 func (dao *DAO) FindPollVotes(pollID string) ([]PollVote, error) {
 	sql := `
-		SELECT v.poll_id, v.user_id, u.username, v.vote FROM poll_vote AS v
-		INNER JOIN user u ON u.id = v.user_id
+		SELECT * FROM poll_vote
 		WHERE poll_id = $1
 	`
 	return querySlice[PollVote](
