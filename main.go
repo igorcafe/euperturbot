@@ -147,7 +147,7 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	err := mydao.DeleteUserTopic(dao.UserTopic{
+	n, err := mydao.DeleteUserTopic(dao.UserTopic{
 		ChatID: u.Message.Chat.ID,
 		UserID: u.Message.From.ID,
 		Topic:  topic,
@@ -156,8 +156,20 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
 		return fmt.Errorf("falha ao descer :/ (%w)", err)
 	}
 
+	user, err := mydao.FindUser(u.Message.From.ID)
+	if err != nil {
+		return err
+	}
+
+	if n == 0 {
+		_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+			Text: fmt.Sprintf("usuário %s não está inscrito nesse tópico", user.Name()),
+		})
+		return err
+	}
+
 	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
-		Text: "inscrição removida para o tópico " + topic,
+		Text: "inscrição removida para " + user.Name(),
 	})
 	return err
 }

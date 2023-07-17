@@ -232,13 +232,17 @@ func (dao *DAO) SaveUserTopic(topic UserTopic) error {
 	return err
 }
 
-func (dao *DAO) DeleteUserTopic(topic UserTopic) error {
-	_, err := dao.db.Exec(`
+func (dao *DAO) DeleteUserTopic(topic UserTopic) (int64, error) {
+	res, err := dao.db.Exec(`
 		DELETE FROM user_topic
 		WHERE chat_id = $1 AND user_id = $2 AND topic = $3
 	`, topic.ChatID, topic.UserID, topic.Topic)
 
-	return err
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
 }
 
 func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
