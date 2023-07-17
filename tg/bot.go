@@ -135,14 +135,6 @@ func (bot *Bot) SendPoll(params SendPollParams) (*Message, error) {
 }
 
 func (bot *Bot) SendMessage(params SendMessageParams) (*Message, error) {
-	// data, err := json.Marshal(params)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// h := http.Header{}
-	// h.Set("Content-Type", "application/json")
-
 	res, err := apiJSONRequest[Message](bot, "sendMessage", params)
 	if err != nil {
 		return nil, err
