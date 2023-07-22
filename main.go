@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/glebarez/go-sqlite"
+	_ "github.com/glebarez/go-sqlite"
 	"github.com/igoracmelo/euperturbot/dao"
 	"github.com/igoracmelo/euperturbot/env"
 	"github.com/igoracmelo/euperturbot/tg"
@@ -63,23 +63,20 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
-	topic := ""
+	topics := []string{}
 	if len(fields) > 1 {
-		topic = fields[1]
+		topics = strings.Split(fields[1], "\n")
 	}
 
-	if err := validateTopic(topic); err != nil {
-		return err
-	}
-
-	exists, err := mydao.ExistsChatTopic(u.Message.Chat.ID, topic)
-	if err != nil {
-		return err
-	}
-
-	if !exists && u.Message.From.ID != godID {
+	if len(topics) == 0 {
 		return tg.SendMessageParams{
-			Text: "macaquearam demais... chega!",
+			Text: "cadê o(s) tópico(s)?",
+		}
+	}
+
+	if len(topics) > 3 {
+		return tg.SendMessageParams{
+			Text: "no máximo 3 tópicos por vez",
 		}
 	}
 
@@ -100,32 +97,50 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 		user.Username = sanitizeUsername(u.Message.ReplyToMessage.From.Username)
 	}
 
-	err = mydao.SaveUser(user)
+	err := mydao.SaveUser(user)
 	if err != nil {
 		return err
 	}
 
-	userTopic := dao.UserTopic{
-		ChatID: u.Message.Chat.ID,
-		UserID: user.ID,
-		Topic:  topic,
-	}
-	err = mydao.SaveUserTopic(userTopic)
-	if err, ok := err.(*sqlite.Error); ok &&
-		err.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
-		return tg.SendMessageParams{
-			Text: "já inscrito nesse tópico",
+	for i, topic := range topics {
+		topics[i] = strings.TrimSpace(topic)
+		topic := topics[i]
+
+		if err := validateTopic(topic); err != nil {
+			return err
 		}
-	}
-	if err != nil {
-		log.Print(err)
-		return tg.SendMessageParams{
-			Text: "falha ao salvar tópico",
+
+		exists, err := mydao.ExistsChatTopic(u.Message.Chat.ID, topic)
+		if err != nil {
+			return err
+		}
+
+		if !exists && u.Message.From.ID != godID {
+			return tg.SendMessageParams{
+				Text: "macaquearam demais... chega!",
+			}
+		}
+
+		userTopic := dao.UserTopic{
+			ChatID: u.Message.Chat.ID,
+			UserID: user.ID,
+			Topic:  topic,
+		}
+		err = mydao.SaveUserTopic(userTopic)
+		if err != nil {
+			log.Print(err)
+			return tg.SendMessageParams{
+				Text: "falha ao salvar tópico " + topic,
+			}
 		}
 	}
 
+	txt := fmt.Sprintf("inscrições adicionadas para %s:\n", user.Name())
+	for _, topic := range topics {
+		txt += fmt.Sprintf("- %s\n", topic)
+	}
 	return tg.SendMessageParams{
-		Text: "inscrição adicionada para " + user.Name(),
+		Text: txt,
 	}
 }
 
