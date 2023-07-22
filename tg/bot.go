@@ -126,6 +126,14 @@ func (bot *Bot) GetUpdatesChannel() chan Update {
 	return ch
 }
 
+func (bot *Bot) SendVoice(params SendVoiceParams) (*Message, error) {
+	res, err := apiJSONRequest[Message](bot, "sendVoice", params)
+	if err != nil {
+		return nil, err
+	}
+	return &res.Result, nil
+}
+
 func (bot *Bot) SendPoll(params SendPollParams) (*Message, error) {
 	res, err := apiJSONRequest[Message](bot, "sendPoll", params)
 	if err != nil {

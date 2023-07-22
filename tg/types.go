@@ -30,6 +30,12 @@ type EditMessageTextParams struct {
 	ParseMode string `json:"parse_mode,omitempty"`
 }
 
+type SendVoiceParams struct {
+	ChatID           int64  `json:"chat_id"`
+	Voice            string `json:"voice"`
+	ReplyToMessageID int    `json:"reply_to_message_id"`
+}
+
 type SendPollParams struct {
 	ChatID      int64    `json:"chat_id"`
 	Question    string   `json:"question"`
