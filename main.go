@@ -445,10 +445,9 @@ func handleUncountEvent(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	_, err = replyToMessage(bot, u.Message, &tg.SendMessageParams{
+	return tg.SendMessageParams{
 		Text: "descontey",
-	})
-	return err
+	}
 }
 
 func handleSpam(bot *tg.Bot, u tg.Update) error {
@@ -579,8 +578,11 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func handleAnyMessage(bot *tg.Bot, u tg.Update) {
-	log.Printf("any text: %s", u.Message.Text)
+// TODO: per chat
+var lastVoice atomic.Int32
+
+func handleTextMessage(bot *tg.Bot, u tg.Update) error {
+	// log.Printf("any text: %s", u.Message.Text)
 
 	questions := []string{"and", "e?", "askers", "askers?", "perguntadores", "perguntadores?"}
 	found := false
@@ -590,26 +592,48 @@ func handleAnyMessage(bot *tg.Bot, u tg.Update) {
 			break
 		}
 	}
-	if !found {
-		return
+
+	if found {
+		msgID := 0
+		if u.Message.ReplyToMessage != nil {
+			msgID = u.Message.ReplyToMessage.MessageID
+		}
+		_, err := bot.SendMessage(tg.SendMessageParams{
+			ChatID:                   u.Message.Chat.ID,
+			Text:                     "perguntadores not found",
+			ReplyToMessageID:         msgID,
+			AllowSendingWithoutReply: true,
+		})
+		return err
 	}
 
-	msgID := 0
-	if u.Message.ReplyToMessage != nil {
-		msgID = u.Message.ReplyToMessage.MessageID
+	n := lastVoice.Add(1)
+
+	if n%10 == 0 {
+		log.Printf("%d messages remaining", 50-n)
 	}
-	_, _ = bot.SendMessage(tg.SendMessageParams{
-		ChatID:                   u.Message.Chat.ID,
-		Text:                     "perguntadores not found",
-		ReplyToMessageID:         msgID,
-		AllowSendingWithoutReply: true,
-	})
+
+	if lastVoice.CompareAndSwap(50, 0) {
+		log.Println("sending voice: ", n)
+		b, err := os.ReadFile("./audio_ids.txt")
+		if err != nil {
+			return err
+		}
+
+		lines := bytes.Split(b, []byte("\n"))
+		line := lines[rand.Intn(len(lines))]
+
+		_, err = bot.SendVoice(tg.SendVoiceParams{
+			ChatID:           u.Message.Chat.ID,
+			Voice:            string(line),
+			ReplyToMessageID: u.Message.MessageID,
+		})
+
+		return err
+	}
+
+	return nil
 }
-
-func replyToMessage(bot *tg.Bot, msg *tg.Message, params *tg.SendMessageParams) (*tg.Message, error) {
-	if params == nil {
-		params = &tg.SendMessageParams{}
-	}
 
 	params.ChatID = msg.Chat.ID
 	params.ReplyToMessageID = msg.MessageID
@@ -624,6 +648,9 @@ func validateTopic(topic string) error {
 	}
 	if len(topic) > 30 {
 		return fmt.Errorf("tópico muito grande")
+	}
+	if strings.Contains(topic, "\n") {
+		return fmt.Errorf("tópico não pode ter mais de uma linha")
 	}
 	return nil
 }
