@@ -23,6 +23,10 @@ type SendMessageParams struct {
 	AllowSendingWithoutReply bool   `json:"allow_sending_without_reply,omitempty"`
 }
 
+func (p SendMessageParams) Error() string {
+	return p.Text
+}
+
 type EditMessageTextParams struct {
 	ChatID    int64  `json:"chat_id"`
 	MessageID int    `json:"message_id"`

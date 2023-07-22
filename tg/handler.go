@@ -74,6 +74,18 @@ func (uh *UpdateHandler) Start() {
 						<-limit
 					}()
 					err := handler.handler(uh.bot, update)
+
+					if params, ok := err.(SendMessageParams); ok {
+						params.ChatID = update.Message.Chat.ID
+						params.ReplyToMessageID = update.Message.MessageID
+
+						_, err = uh.bot.SendMessage(params)
+						if err != nil {
+							log.Print(err)
+						}
+						return
+					}
+
 					if err != nil {
 						log.Print(err)
 					}
