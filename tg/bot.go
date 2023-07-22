@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"path"
 	"time"
+
+	"github.com/igoracmelo/euperturbot/util"
 )
 
 type Bot struct {
-	retry    *Retry
+	retry    *util.Retry
 	token    string
 	Username string
 	baseURL  string
@@ -23,9 +25,9 @@ func NewBot(token string) *Bot {
 	return &Bot{
 		token:   token,
 		baseURL: "https://api.telegram.org/bot",
-		retry: &Retry{
-			maxAttempts: 3,
-			delay:       time.Second,
+		retry: &util.Retry{
+			MaxAttempts: 3,
+			Delay:       time.Second,
 		},
 		client: http.Client{
 			Timeout: 10 * time.Second,

@@ -14,7 +14,7 @@ import (
 	"github.com/igoracmelo/euperturbot/dao"
 	"github.com/igoracmelo/euperturbot/env"
 	"github.com/igoracmelo/euperturbot/tg"
-	sqlite3 "modernc.org/sqlite/lib"
+	"github.com/igoracmelo/euperturbot/util"
 )
 
 var token string
@@ -184,7 +184,7 @@ func handleCreatePoll(bot *tg.Bot, u tg.Update) error {
 		ChatID:      u.Message.Chat.ID,
 		Question:    question,
 		Options:     []string{"👍🏿", "👎🏻"},
-		IsAnonymous: tg.ToPtr(false),
+		IsAnonymous: util.ToPtr(false),
 	})
 	return err
 }
@@ -257,7 +257,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		ChatID:      u.Message.Chat.ID,
 		Question:    topic,
 		Options:     []string{"bo 👍🏿", "bo nao 👎🏻"},
-		IsAnonymous: tg.ToPtr(false),
+		IsAnonymous: util.ToPtr(false),
 	})
 	if err != nil {
 		return err
@@ -385,7 +385,7 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) error {
 	}
 
 	last := time.Now().Sub(events[0].Time)
-	relative := relativeDuration(last)
+	relative := util.RelativeDuration(last)
 
 	var txt string
 	if len(events) == 1 {

@@ -1,11 +1,11 @@
-package main
+package util
 
 import (
 	"testing"
 	"time"
 )
 
-func Test_relativeDuration(t *testing.T) {
+func Test_RelativeDuration(t *testing.T) {
 	tests := []struct {
 		d    time.Duration
 		want string
@@ -18,7 +18,7 @@ func Test_relativeDuration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := relativeDuration(tt.d)
+		got := RelativeDuration(tt.d)
 		if tt.want != got {
 			t.Errorf("want: '%s', got: '%s", tt.want, got)
 		}
