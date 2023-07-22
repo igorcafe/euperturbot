@@ -36,7 +36,6 @@ func NewSqlite(dsn string) (*DAO, error) {
 			id INTEGER PRIMARY KEY,
 			chat_id INTEGER NOT NULL,
 			user_id INTEGER NOT NULL,
-			username TEXT NOT NULL,
 			topic TEXT NOT NULL,
 			UNIQUE(chat_id, user_id, topic)
 		);
