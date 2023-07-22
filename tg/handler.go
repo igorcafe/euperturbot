@@ -34,6 +34,13 @@ func (uh *UpdateHandler) Handle(criteria CriteriaFunc, handler func(bot *Bot, u 
 	})
 }
 
+func (uh *UpdateHandler) HandleText(handler func(bot *Bot, u Update) error) {
+	criteria := func(u Update) bool {
+		return u.Message != nil && u.Message.Text != ""
+	}
+	uh.Handle(criteria, handler)
+}
+
 func (uh *UpdateHandler) HandleCommand(cmd string, handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
 		if u.Message == nil {
