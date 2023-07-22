@@ -115,7 +115,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// me: /unsub game
-	err = mydao.DeleteUserTopic(UserTopic{
+	_, err = mydao.DeleteUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 1,
 		Topic:  "game",
@@ -125,7 +125,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// you: unsub game
-	err = mydao.DeleteUserTopic(UserTopic{
+	_, err = mydao.DeleteUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 2,
 		Topic:  "game",
