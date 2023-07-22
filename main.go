@@ -501,6 +501,27 @@ func handleSpam(bot *tg.Bot, u tg.Update) error {
 func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	var err error
 
+	poll, err := mydao.FindPoll(u.PollAnswer.PollID)
+	if err != nil {
+		return err
+	}
+
+	users, err := mydao.FindUsersByTopic(poll.ChatID, poll.Topic)
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for _, user := range users {
+		if user.ID == u.PollAnswer.User.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+
 	if len(u.PollAnswer.OptionIDs) == 0 {
 		err = mydao.DeletePollVote(u.PollAnswer.PollID, u.PollAnswer.User.ID)
 	} else {
@@ -514,16 +535,6 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	poll, err := mydao.FindPoll(u.PollAnswer.PollID)
-	if err != nil {
-		return err
-	}
-
-	users, err := mydao.FindUsersByTopic(poll.ChatID, poll.Topic)
-	if err != nil {
-		return err
-	}
-
 	positiveCount := 0
 	positives := ""
 	negativeCount := 0
@@ -531,10 +542,10 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	remainingCount := 0
 	remainings := ""
 
-	for _, u := range users {
-		mention := fmt.Sprintf("[%s](tg://user?id=%d)\n", u.Name(), u.ID)
+	for _, user := range users {
+		mention := fmt.Sprintf("[%s](tg://user?id=%d)\n", user.Name(), user.ID)
 
-		vote, err := mydao.FindPollVote(poll.ID, u.ID)
+		vote, err := mydao.FindPollVote(poll.ID, user.ID)
 		if errors.Is(err, sql.ErrNoRows) {
 			remainings += mention
 			remainingCount++
