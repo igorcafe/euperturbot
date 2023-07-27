@@ -2,6 +2,7 @@ package tg
 
 import (
 	"log"
+	"runtime/debug"
 	"strings"
 )
 
@@ -74,7 +75,8 @@ func (uh *UpdateHandler) Start() {
 				go func() {
 					defer func() {
 						if r := recover(); r != nil {
-							log.Print("panic: ", r)
+							log.Print("handler panic recovered: ", r)
+							debug.PrintStack()
 						}
 					}()
 					defer func() {
