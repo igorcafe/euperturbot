@@ -641,12 +641,6 @@ func handleTextMessage(bot *tg.Bot, u tg.Update) error {
 	return nil
 }
 
-	params.ChatID = msg.Chat.ID
-	params.ReplyToMessageID = msg.MessageID
-
-	return bot.SendMessage(*params)
-}
-
 func validateTopic(topic string) error {
 	topic = strings.TrimSpace(topic)
 	if len(topic) == 0 {
