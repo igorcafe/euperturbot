@@ -585,8 +585,6 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 var lastVoice atomic.Int32
 
 func handleTextMessage(bot *tg.Bot, u tg.Update) error {
-	// log.Printf("any text: %s", u.Message.Text)
-
 	questions := []string{"and", "e?", "askers", "askers?", "perguntadores", "perguntadores?"}
 	found := false
 	for _, q := range questions {
@@ -611,13 +609,15 @@ func handleTextMessage(bot *tg.Bot, u tg.Update) error {
 	}
 
 	n := lastVoice.Add(1)
+	if n > 50 {
+		lastVoice.Swap(0)
+	}
 
 	if n%10 == 0 {
 		log.Printf("%d messages remaining", 50-n)
 	}
 
 	if lastVoice.CompareAndSwap(50, 0) {
-		log.Println("sending voice: ", n)
 		b, err := os.ReadFile("./audio_ids.txt")
 		if err != nil {
 			return err
@@ -625,6 +625,8 @@ func handleTextMessage(bot *tg.Bot, u tg.Update) error {
 
 		lines := bytes.Split(b, []byte("\n"))
 		line := lines[rand.Intn(len(lines))]
+
+		log.Println("sending voice: ", string(line))
 
 		_, err = bot.SendVoice(tg.SendVoiceParams{
 			ChatID:           u.Message.Chat.ID,
