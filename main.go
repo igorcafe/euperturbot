@@ -5,13 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
+	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
 	_ "github.com/glebarez/go-sqlite"
-	"github.com/igoracmelo/euperturbot/dao"
+	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/env"
 	"github.com/igoracmelo/euperturbot/tg"
 	"github.com/igoracmelo/euperturbot/util"
@@ -19,7 +22,7 @@ import (
 
 var token string
 var godID int64
-var mydao *dao.DAO
+var myDB *db.DB
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -28,7 +31,7 @@ func main() {
 	godID = env.MustInt64("GOD_ID")
 
 	var err error
-	mydao, err = dao.NewSqlite("euperturbot.db")
+	myDB, err = db.NewSqlite("euperturbot.db")
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +83,7 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	user := dao.User{
+	user := db.User{
 		ID:        u.Message.From.ID,
 		FirstName: sanitizeUsername(u.Message.From.FirstName),
 		Username:  sanitizeUsername(u.Message.From.Username),
@@ -97,7 +100,7 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 		user.Username = sanitizeUsername(u.Message.ReplyToMessage.From.Username)
 	}
 
-	err := mydao.SaveUser(user)
+	err := myDB.SaveUser(user)
 	if err != nil {
 		return err
 	}
@@ -110,7 +113,7 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 			return err
 		}
 
-		exists, err := mydao.ExistsChatTopic(u.Message.Chat.ID, topic)
+		exists, err := myDB.ExistsChatTopic(u.Message.Chat.ID, topic)
 		if err != nil {
 			return err
 		}
@@ -121,12 +124,12 @@ func handleSubTopic(bot *tg.Bot, u tg.Update) error {
 			}
 		}
 
-		userTopic := dao.UserTopic{
+		userTopic := db.UserTopic{
 			ChatID: u.Message.Chat.ID,
 			UserID: user.ID,
 			Topic:  topic,
 		}
-		err = mydao.SaveUserTopic(userTopic)
+		err = myDB.SaveUserTopic(userTopic)
 		if err != nil {
 			log.Print(err)
 			return tg.SendMessageParams{
@@ -157,7 +160,7 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	n, err := mydao.DeleteUserTopic(dao.UserTopic{
+	n, err := myDB.DeleteUserTopic(db.UserTopic{
 		ChatID: u.Message.Chat.ID,
 		UserID: u.Message.From.ID,
 		Topic:  topic,
@@ -166,7 +169,7 @@ func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
 		return fmt.Errorf("falha ao descer :/ (%w)", err)
 	}
 
-	user, err := mydao.FindUser(u.Message.From.ID)
+	user, err := myDB.FindUser(u.Message.From.ID)
 	if err != nil {
 		return err
 	}
@@ -217,7 +220,7 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	users, err := mydao.FindUsersByTopic(u.Message.Chat.ID, topic)
+	users, err := myDB.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		return tg.SendMessageParams{
 			Text: "falha ao listar usuários",
@@ -255,7 +258,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	users, err := mydao.FindUsersByTopic(u.Message.Chat.ID, topic)
+	users, err := myDB.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		return tg.SendMessageParams{
 			Text: "falha ao listar usuários",
@@ -296,7 +299,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	err = mydao.SavePoll(dao.Poll{
+	err = myDB.SavePoll(db.Poll{
 		ID:              poll.ID,
 		ChatID:          u.Message.Chat.ID,
 		Topic:           topic,
@@ -312,7 +315,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 func handleListUserTopics(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
-	topics, err := mydao.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
+	topics, err := myDB.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
 	if err != nil {
 		return tg.SendMessageParams{
 			Text: "falha ao listar tópicos",
@@ -338,7 +341,7 @@ func handleListUserTopics(bot *tg.Bot, u tg.Update) error {
 func handleListChatTopics(bot *tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
-	topics, err := mydao.FindChatTopics(u.Message.Chat.ID)
+	topics, err := myDB.FindChatTopics(u.Message.Chat.ID)
 	if err != nil {
 		log.Print(err)
 		return tg.SendMessageParams{
@@ -370,7 +373,7 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	event := dao.ChatEvent{
+	event := db.ChatEvent{
 		ChatID: u.Message.Chat.ID,
 		Name:   strings.TrimSpace(fields[1]),
 	}
@@ -384,11 +387,11 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) error {
 			}
 		}
 
-		err := mydao.SaveChatEvent(event)
+		err := myDB.SaveChatEvent(event)
 		return err
 	}
 
-	events, err := mydao.FindChatEventsByName(event.ChatID, event.Name)
+	events, err := myDB.FindChatEventsByName(event.ChatID, event.Name)
 	if err != nil {
 		return err
 	}
@@ -434,13 +437,13 @@ func handleUncountEvent(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	event := dao.ChatEvent{
+	event := db.ChatEvent{
 		ChatID: u.Message.Chat.ID,
 		MsgID:  u.Message.ReplyToMessage.MessageID,
 		Name:   strings.TrimSpace(fields[1]),
 	}
 
-	err := mydao.DeleteChatEvent(event)
+	err := myDB.DeleteChatEvent(event)
 	if err != nil {
 		return err
 	}
@@ -494,12 +497,25 @@ func handleSpam(bot *tg.Bot, u tg.Update) error {
 func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	var err error
 
-	poll, err := mydao.FindPoll(u.PollAnswer.PollID)
+	if len(u.PollAnswer.OptionIDs) == 0 {
+		err = myDB.DeletePollVote(u.PollAnswer.PollID, u.PollAnswer.User.ID)
+	} else {
+		err = myDB.SavePollVote(db.PollVote{
+			PollID: u.PollAnswer.PollID,
+			UserID: u.PollAnswer.User.ID,
+			Vote:   u.PollAnswer.OptionIDs[0],
+		})
+	}
 	if err != nil {
 		return err
 	}
 
-	users, err := mydao.FindUsersByTopic(poll.ChatID, poll.Topic)
+	poll, err := myDB.FindPoll(u.PollAnswer.PollID)
+	if err != nil {
+		return err
+	}
+
+	users, err := myDB.FindUsersByTopic(poll.ChatID, poll.Topic)
 	if err != nil {
 		return err
 	}
@@ -515,19 +531,6 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 		return nil
 	}
 
-	if len(u.PollAnswer.OptionIDs) == 0 {
-		err = mydao.DeletePollVote(u.PollAnswer.PollID, u.PollAnswer.User.ID)
-	} else {
-		err = mydao.SavePollVote(dao.PollVote{
-			PollID: u.PollAnswer.PollID,
-			UserID: u.PollAnswer.User.ID,
-			Vote:   u.PollAnswer.OptionIDs[0],
-		})
-	}
-	if err != nil {
-		return err
-	}
-
 	positiveCount := 0
 	positives := ""
 	negativeCount := 0
@@ -538,7 +541,7 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 	for _, user := range users {
 		mention := fmt.Sprintf("[%s](tg://user?id=%d)\n", user.Name(), user.ID)
 
-		vote, err := mydao.FindPollVote(poll.ID, user.ID)
+		vote, err := myDB.FindPollVote(poll.ID, user.ID)
 		if errors.Is(err, sql.ErrNoRows) {
 			remainings += mention
 			remainingCount++

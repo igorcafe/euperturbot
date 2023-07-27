@@ -1,4 +1,4 @@
-package dao
+package db
 
 import (
 	"database/sql"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type DAO struct {
+type DB struct {
 	db *sql.DB
 }
 
@@ -14,7 +14,7 @@ type ColumnMapper interface {
 	ColumnMap() map[string]any
 }
 
-func NewSqlite(dsn string) (*DAO, error) {
+func NewSqlite(dsn string) (*DB, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -69,11 +69,11 @@ func NewSqlite(dsn string) (*DAO, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DAO{db}, nil
+	return &DB{db}, nil
 }
 
-func (dao *DAO) Close() error {
-	return dao.db.Close()
+func (db *DB) Close() error {
+	return db.db.Close()
 }
 
 func scanCols(rows *sql.Rows, colNames []string, entity ColumnMapper) error {
@@ -147,8 +147,8 @@ func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) map[s
 			args[i] = &discard
 		}
 		for i, col := range cols {
-			if p, ok := m[col]; ok {
-				args[i] = p
+			if ptr, ok := m[col]; ok {
+				args[i] = ptr
 			}
 		}
 		err := rows.Scan(args...)
@@ -182,8 +182,8 @@ func (u *User) ColumnMap() map[string]any {
 	}
 }
 
-func (dao *DAO) SaveUser(u User) error {
-	_, err := dao.db.Exec(`
+func (db *DB) SaveUser(u User) error {
+	_, err := db.db.Exec(`
 		INSERT INTO user
 		(id, first_name, username)
 		VALUES ($1, $2, $3)
@@ -194,9 +194,9 @@ func (dao *DAO) SaveUser(u User) error {
 	return err
 }
 
-func (dao *DAO) FindUser(id int64) (*User, error) {
+func (db *DB) FindUser(id int64) (*User, error) {
 	var u User
-	err := queryRow(dao.db, &u, `SELECT * FROM user WHERE id = $1`, id)
+	err := queryRow(db.db, &u, `SELECT * FROM user WHERE id = $1`, id)
 	return &u, err
 }
 
@@ -208,8 +208,8 @@ type UserTopic struct {
 	Subscribers int
 }
 
-func (dao *DAO) ExistsChatTopic(chatID int64, topic string) (bool, error) {
-	row := dao.db.QueryRow(`
+func (db *DB) ExistsChatTopic(chatID int64, topic string) (bool, error) {
+	row := db.db.QueryRow(`
 		SELECT EXISTS (
 			SELECT * FROM user_topic
 			WHERE chat_id = $1 AND topic = $2
@@ -221,18 +221,19 @@ func (dao *DAO) ExistsChatTopic(chatID int64, topic string) (bool, error) {
 	return exists, err
 }
 
-func (dao *DAO) SaveUserTopic(topic UserTopic) error {
-	_, err := dao.db.Exec(`
+func (db *DB) SaveUserTopic(topic UserTopic) error {
+	_, err := db.db.Exec(`
 		INSERT INTO user_topic
 		(chat_id, user_id, topic)
 		VALUES ($1, $2, $3)
+		ON CONFLICT DO NOTHING
 	`, topic.ChatID, topic.UserID, topic.Topic)
 
 	return err
 }
 
-func (dao *DAO) DeleteUserTopic(topic UserTopic) (int64, error) {
-	res, err := dao.db.Exec(`
+func (db *DB) DeleteUserTopic(topic UserTopic) (int64, error) {
+	res, err := db.db.Exec(`
 		DELETE FROM user_topic
 		WHERE chat_id = $1 AND user_id = $2 AND topic = $3
 	`, topic.ChatID, topic.UserID, topic.Topic)
@@ -244,7 +245,7 @@ func (dao *DAO) DeleteUserTopic(topic UserTopic) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
+func (db *DB) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 	sql := `
 		SELECT *, (
 			SELECT COUNT(*) FROM user_topic
@@ -255,7 +256,7 @@ func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 		WHERE chat_id = $1 AND user_id = $2
 	`
 	return querySlice[UserTopic](
-		dao.db,
+		db.db,
 		sql,
 		[]any{chatID, userID},
 		func(t *UserTopic) map[string]any {
@@ -270,7 +271,7 @@ func (dao *DAO) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 	)
 }
 
-func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
+func (db *DB) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	sql := `
 		SELECT DISTINCT *, COUNT(*) AS subscribers FROM user_topic
 		WHERE chat_id = $1
@@ -278,7 +279,7 @@ func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 		ORDER BY subscribers DESC
 	`
 	return querySlice[UserTopic](
-		dao.db,
+		db.db,
 		sql,
 		[]any{chatID},
 		func(t *UserTopic) map[string]any {
@@ -293,14 +294,14 @@ func (dao *DAO) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	)
 }
 
-func (dao *DAO) FindUsersByTopic(chatID int64, topic string) ([]User, error) {
+func (db *DB) FindUsersByTopic(chatID int64, topic string) ([]User, error) {
 	sql := `
 		SELECT u.* FROM user u
 		JOIN user_topic ut ON u.id = ut.user_id
 		WHERE ut.chat_id = $1 AND ut.topic = $2
 	`
 	return querySlice[User](
-		dao.db,
+		db.db,
 		sql,
 		[]any{chatID, topic},
 		func(u *User) map[string]any {
@@ -321,8 +322,8 @@ type ChatEvent struct {
 	Name   string
 }
 
-func (dao *DAO) SaveChatEvent(e ChatEvent) error {
-	_, err := dao.db.Exec(`
+func (db *DB) SaveChatEvent(e ChatEvent) error {
+	_, err := db.db.Exec(`
 		INSERT INTO event
 		(chat_id, msg_id, time, name)
 		VALUES ($1, $2, $3, $4)
@@ -332,14 +333,14 @@ func (dao *DAO) SaveChatEvent(e ChatEvent) error {
 	return err
 }
 
-func (dao *DAO) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, error) {
+func (db *DB) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, error) {
 	sql := `
 		SELECT * FROM event
 		WHERE chat_id = $1 AND name = $2
 		ORDER BY time DESC
 	`
 	return querySlice[ChatEvent](
-		dao.db,
+		db.db,
 		sql,
 		[]any{chatID, name},
 		func(e *ChatEvent) map[string]any {
@@ -354,8 +355,8 @@ func (dao *DAO) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, er
 	)
 }
 
-func (dao *DAO) DeleteChatEvent(e ChatEvent) error {
-	_, err := dao.db.Exec(`
+func (db *DB) DeleteChatEvent(e ChatEvent) error {
+	_, err := db.db.Exec(`
 		DELETE FROM event
 		WHERE chat_id = $1 AND msg_id = $2 AND name = $3
 	`, e.ChatID, e.MsgID, e.Name)
@@ -378,8 +379,8 @@ func (p *Poll) ColumnMap() map[string]any {
 	}
 }
 
-func (dao *DAO) SavePoll(p Poll) error {
-	_, err := dao.db.Exec(`
+func (db *DB) SavePoll(p Poll) error {
+	_, err := db.db.Exec(`
 		INSERT INTO poll
 		(id, chat_id, topic, result_message_id)
 		VALUES ($1, $2, $3, $4)
@@ -388,9 +389,19 @@ func (dao *DAO) SavePoll(p Poll) error {
 	return err
 }
 
-func (dao *DAO) FindPoll(pollID string) (*Poll, error) {
+func (db *DB) FindPoll(pollID string) (*Poll, error) {
 	var p Poll
-	err := queryRow(dao.db, &p, `SELECT * FROM poll WHERE id = $1`, pollID)
+	err := queryRow(db.db, &p, `SELECT * FROM poll WHERE id = $1`, pollID)
+	return &p, err
+}
+
+func (db *DB) FindLastPollByTopic(topic string) (*Poll, error) {
+	var p Poll
+	err := queryRow(db.db, &p, `
+		SELECT * FROM poll
+		WHERE topic = $1
+		ORDER BY result_message_id DESC
+	`, topic)
 	return &p, err
 }
 
@@ -408,8 +419,8 @@ func (v *PollVote) ColumnMap() map[string]any {
 	}
 }
 
-func (dao *DAO) SavePollVote(v PollVote) error {
-	_, err := dao.db.Exec(`
+func (db *DB) SavePollVote(v PollVote) error {
+	_, err := db.db.Exec(`
 		INSERT INTO poll_vote
 		(poll_id, user_id, vote)
 		VALUES ($1, $2, $3)
@@ -419,21 +430,21 @@ func (dao *DAO) SavePollVote(v PollVote) error {
 	return err
 }
 
-func (dao *DAO) DeletePollVote(pollID string, userID int64) error {
-	_, err := dao.db.Exec(`
+func (db *DB) DeletePollVote(pollID string, userID int64) error {
+	_, err := db.db.Exec(`
 		DELETE FROM poll_vote
 		WHERE poll_id = $1 AND user_id = $2
 	`, pollID, userID)
 	return err
 }
 
-func (dao *DAO) FindPollVotes(pollID string) ([]PollVote, error) {
+func (db *DB) FindPollVotes(pollID string) ([]PollVote, error) {
 	sql := `
 		SELECT * FROM poll_vote
 		WHERE poll_id = $1
 	`
 	return querySlice[PollVote](
-		dao.db,
+		db.db,
 		sql,
 		[]any{pollID},
 		func(e *PollVote) map[string]any {
@@ -446,9 +457,9 @@ func (dao *DAO) FindPollVotes(pollID string) ([]PollVote, error) {
 	)
 }
 
-func (dao *DAO) FindPollVote(pollID string, userID int64) (*PollVote, error) {
+func (db *DB) FindPollVote(pollID string, userID int64) (*PollVote, error) {
 	var v PollVote
-	err := queryRow(dao.db, &v, `
+	err := queryRow(db.db, &v, `
 		SELECT * FROM poll_vote
 		WHERE poll_id = $1 AND user_id = $2
 	`, pollID, userID)

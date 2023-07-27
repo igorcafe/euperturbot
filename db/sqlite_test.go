@@ -1,4 +1,4 @@
-package dao
+package db
 
 import (
 	"database/sql"
@@ -10,13 +10,13 @@ import (
 )
 
 func TestUserTopic(t *testing.T) {
-	mydao, err := NewSqlite(":memory:")
+	myDB, err := NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer mydao.Close()
+	defer myDB.Close()
 
-	err = mydao.SaveUser(User{
+	err = myDB.SaveUser(User{
 		ID:       1,
 		Username: "me",
 	})
@@ -24,7 +24,7 @@ func TestUserTopic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = mydao.SaveUser(User{
+	err = myDB.SaveUser(User{
 		ID:       2,
 		Username: "you",
 	})
@@ -33,7 +33,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// me: /sub game
-	err = mydao.SaveUserTopic(UserTopic{
+	err = myDB.SaveUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 1,
 		Topic:  "game",
@@ -43,7 +43,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// you: sub game
-	err = mydao.SaveUserTopic(UserTopic{
+	err = myDB.SaveUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 2,
 		Topic:  "game",
@@ -53,7 +53,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// you: sub other
-	err = mydao.SaveUserTopic(UserTopic{
+	err = myDB.SaveUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 2,
 		Topic:  "other",
@@ -63,7 +63,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// exists topic game
-	exists, err := mydao.ExistsChatTopic(1, "game")
+	exists, err := myDB.ExistsChatTopic(1, "game")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// me: /list
-	topics, err := mydao.FindUserChatTopics(1, 1)
+	topics, err := myDB.FindUserChatTopics(1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// /who game
-	users, err := mydao.FindUsersByTopic(1, "game")
+	users, err := myDB.FindUsersByTopic(1, "game")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestUserTopic(t *testing.T) {
 		t.Fatalf("unexpected subscriptions for topic 'game': %s, %s", u1.Username, u2.Username)
 	}
 
-	up, err := mydao.FindUser(u1.ID)
+	up, err := myDB.FindUser(u1.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestUserTopic(t *testing.T) {
 		t.Fatalf("want: %+v, got: %+v", u1, *up)
 	}
 
-	topics, err = mydao.FindChatTopics(1)
+	topics, err = myDB.FindChatTopics(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// me: /unsub game
-	_, err = mydao.DeleteUserTopic(UserTopic{
+	_, err = myDB.DeleteUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 1,
 		Topic:  "game",
@@ -125,7 +125,7 @@ func TestUserTopic(t *testing.T) {
 	}
 
 	// you: unsub game
-	_, err = mydao.DeleteUserTopic(UserTopic{
+	_, err = myDB.DeleteUserTopic(UserTopic{
 		ChatID: 1,
 		UserID: 2,
 		Topic:  "game",
@@ -134,7 +134,7 @@ func TestUserTopic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exists, err = mydao.ExistsChatTopic(1, "game")
+	exists, err = myDB.ExistsChatTopic(1, "game")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,13 +144,13 @@ func TestUserTopic(t *testing.T) {
 }
 
 func TestChatEvent(t *testing.T) {
-	mydao, err := NewSqlite(":memory:")
+	myDB, err := NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer mydao.Close()
+	defer myDB.Close()
 
-	err = mydao.SaveChatEvent(ChatEvent{
+	err = myDB.SaveChatEvent(ChatEvent{
 		ChatID: 1,
 		MsgID:  1,
 		Time:   time.Time{},
@@ -160,7 +160,7 @@ func TestChatEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	events, err := mydao.FindChatEventsByName(1, "event1")
+	events, err := myDB.FindChatEventsByName(1, "event1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestChatEvent(t *testing.T) {
 		t.Fatalf("want: 1 event, got: %+v", events)
 	}
 
-	err = mydao.DeleteChatEvent(ChatEvent{
+	err = myDB.DeleteChatEvent(ChatEvent{
 		ChatID: 1,
 		MsgID:  1,
 		Name:   "event1",
@@ -178,7 +178,7 @@ func TestChatEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	events, err = mydao.FindChatEventsByName(1, "event1")
+	events, err = myDB.FindChatEventsByName(1, "event1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,20 +189,20 @@ func TestChatEvent(t *testing.T) {
 }
 
 func TestPollVote(t *testing.T) {
-	mydao, err := NewSqlite(":memory:")
+	myDB, err := NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer mydao.Close()
+	defer myDB.Close()
 
-	err = mydao.SaveUser(User{
+	err = myDB.SaveUser(User{
 		ID: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = mydao.SavePoll(Poll{
+	err = myDB.SavePoll(Poll{
 		ID:              "poll",
 		ChatID:          1,
 		Topic:           "topic",
@@ -212,12 +212,12 @@ func TestPollVote(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = mydao.FindPoll("poll")
+	_, err = myDB.FindPoll("poll")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = mydao.SavePollVote(PollVote{
+	err = myDB.SavePollVote(PollVote{
 		PollID: "poll",
 		UserID: 1,
 		Vote:   1,
@@ -226,12 +226,12 @@ func TestPollVote(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	votes, err := mydao.FindPollVotes("poll")
+	votes, err := myDB.FindPollVotes("poll")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = mydao.DeletePollVote("poll", 1)
+	err = myDB.DeletePollVote("poll", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,12 +242,12 @@ func TestPollVote(t *testing.T) {
 }
 
 func Test_queryRow(t *testing.T) {
-	dao, err := NewSqlite(":memory:")
+	db, err := NewSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var u User
-	err = queryRow(dao.db, &u, `SELECT * FROM user`)
+	err = queryRow(db.db, &u, `SELECT * FROM user`)
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("want: %v, got: %v", sql.ErrNoRows, err)
 	}
