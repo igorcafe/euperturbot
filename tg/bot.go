@@ -112,7 +112,7 @@ func (bot *Bot) GetUpdatesChannel() chan Update {
 			params := GetUpdatesParams{
 				Offset:         updateID,
 				Timeout:        5,
-				AllowedUpdates: []string{"message", "poll", "poll_answer"},
+				AllowedUpdates: []string{"message", "poll", "poll_answer", "callback_query"},
 			}
 			updates, err := bot.GetUpdates(params)
 			if err != nil {

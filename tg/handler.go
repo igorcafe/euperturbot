@@ -64,6 +64,13 @@ func (uh *UpdateHandler) HandlePollAnswer(handler func(bot *Bot, u Update) error
 	uh.Handle(criteria, handler)
 }
 
+func (uh *UpdateHandler) HandleCallbackQuery(handler func(bot *Bot, u Update) error) {
+	criteria := func(u Update) bool {
+		return u.CallbackQuery != nil
+	}
+	uh.Handle(criteria, handler)
+}
+
 func (uh *UpdateHandler) Start() {
 	limit := make(chan struct{}, 10)
 	for update := range uh.source {

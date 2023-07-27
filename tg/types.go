@@ -16,11 +16,21 @@ type Poll struct {
 }
 
 type SendMessageParams struct {
-	ChatID                   int64  `json:"chat_id"`
-	ReplyToMessageID         int    `json:"reply_to_message_id,omitempty"`
-	Text                     string `json:"text,omitempty"`
-	ParseMode                string `json:"parse_mode,omitempty"`
-	AllowSendingWithoutReply bool   `json:"allow_sending_without_reply,omitempty"`
+	ChatID                   int64                 `json:"chat_id"`
+	ReplyToMessageID         int                   `json:"reply_to_message_id,omitempty"`
+	Text                     string                `json:"text,omitempty"`
+	ParseMode                string                `json:"parse_mode,omitempty"`
+	AllowSendingWithoutReply bool                  `json:"allow_sending_without_reply,omitempty"`
+	ReplyMarkup              *InlineKeyboardMarkup `json:"reply_markup,omitempty"`
+}
+
+type InlineKeyboardMarkup struct {
+	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
+}
+
+type InlineKeyboardButton struct {
+	Text         string `json:"text"`
+	CallbackData string `json:"callback_data"`
 }
 
 func (p SendMessageParams) Error() string {
@@ -28,10 +38,11 @@ func (p SendMessageParams) Error() string {
 }
 
 type EditMessageTextParams struct {
-	ChatID    int64  `json:"chat_id"`
-	MessageID int    `json:"message_id"`
-	Text      string `json:"text,omitempty"`
-	ParseMode string `json:"parse_mode,omitempty"`
+	ChatID      int64                 `json:"chat_id"`
+	MessageID   int                   `json:"message_id"`
+	Text        string                `json:"text,omitempty"`
+	ParseMode   string                `json:"parse_mode,omitempty"`
+	ReplyMarkup *InlineKeyboardMarkup `json:"reply_markup,omitempty"`
 }
 
 type SendVoiceParams struct {
@@ -59,10 +70,19 @@ type Chat struct {
 }
 
 type Update struct {
-	UpdateID   int         `json:"update_id"`
-	Message    *Message    `json:"message"`
-	PollAnswer *PollAnswer `json:"poll_answer"`
+	UpdateID      int            `json:"update_id"`
+	Message       *Message       `json:"message"`
+	PollAnswer    *PollAnswer    `json:"poll_answer"`
+	CallbackQuery *CallbackQuery `json:"callback_query"`
 }
+
+type CallbackQuery struct {
+	ID      string   `json:"id"`
+	From    *User    `json:"from"`
+	Message *Message `json:"message"`
+	Data    string   `json:"data"`
+}
+
 type PollAnswer struct {
 	PollID    string `json:"poll_id"`
 	User      User   `json:"user"`
