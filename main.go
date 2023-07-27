@@ -59,7 +59,7 @@ func main() {
 	h.HandleCommand("listudo", handleListChatTopics)
 	h.HandleCommand("conta", handleCountEvent)
 	h.HandleCommand("desconta", handleUncountEvent)
-	h.HandlePollAnswer(handlePollAnswer)
+	h.HandleCallbackQuery(handleCallbackQuery)
 	h.Start()
 }
 
@@ -272,36 +272,44 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	msg, err := bot.SendPoll(tg.SendPollParams{
-		ChatID:      u.Message.Chat.ID,
-		Question:    topic,
-		Options:     []string{"bo 👍🏿", "bo nao 👎🏻"},
-		IsAnonymous: util.ToPtr(false),
-	})
-	if err != nil {
-		return err
-	}
-	poll := msg.Poll
-
-	txt := fmt.Sprintf("*sim \\(0 votos\\)*\n\n"+
-		"*não \\(0 votos\\)*\n\n"+
-		"*restam \\(%d votos\\)*\n", len(users))
+	txt := fmt.Sprintf(
+		"*sim \\(0 votos\\)*\n\n"+
+			"*não \\(0 votos\\)*\n\n"+
+			"*restam \\(%d votos\\)*\n",
+		len(users),
+	)
 
 	for _, u := range users {
 		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", u.Name(), u.ID)
 	}
 
-	msg, err = bot.SendMessage(tg.SendMessageParams{
-		ChatID:    u.Message.Chat.ID,
-		Text:      txt,
-		ParseMode: "MarkdownV2",
+	up := "👍 0"
+	down := "👎 0"
+
+	msg, err := bot.SendMessage(tg.SendMessageParams{
+		ChatID:           u.Message.Chat.ID,
+		Text:             txt,
+		ParseMode:        "MarkdownV2",
+		ReplyToMessageID: u.Message.MessageID,
+		ReplyMarkup: &tg.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tg.InlineKeyboardButton{{
+				tg.InlineKeyboardButton{
+					Text:         up,
+					CallbackData: "0",
+				},
+				tg.InlineKeyboardButton{
+					Text:         down,
+					CallbackData: "1",
+				},
+			}},
+		},
 	})
 	if err != nil {
 		return err
 	}
 
 	err = myDB.SavePoll(db.Poll{
-		ID:              poll.ID,
+		ID:              strconv.Itoa(msg.MessageID),
 		ChatID:          u.Message.Chat.ID,
 		Topic:           topic,
 		ResultMessageID: msg.MessageID,
@@ -495,23 +503,36 @@ func handleSpam(bot *tg.Bot, u tg.Update) error {
 	return nil
 }
 
-func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
+func handleCallbackQuery(bot *tg.Bot, u tg.Update) error {
 	var err error
 
-	if len(u.PollAnswer.OptionIDs) == 0 {
-		err = myDB.DeletePollVote(u.PollAnswer.PollID, u.PollAnswer.User.ID)
-	} else {
-		err = myDB.SavePollVote(db.PollVote{
-			PollID: u.PollAnswer.PollID,
-			UserID: u.PollAnswer.User.ID,
-			Vote:   u.PollAnswer.OptionIDs[0],
-		})
-	}
+	poll, err := myDB.FindPollByMessage(u.CallbackQuery.Message.MessageID)
 	if err != nil {
 		return err
 	}
 
-	poll, err := myDB.FindPoll(u.PollAnswer.PollID)
+	voteNum, err := strconv.Atoi(u.CallbackQuery.Data)
+	if err != nil {
+		return err
+	}
+
+	// TODO: improve this logic
+	vote, err := myDB.FindPollVote(poll.ID, u.CallbackQuery.From.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		vote = nil
+	} else if err != nil {
+		return err
+	}
+
+	if vote != nil && vote.Vote == voteNum {
+		err = myDB.DeletePollVote(vote.PollID, vote.UserID)
+	} else {
+		err = myDB.SavePollVote(db.PollVote{
+			PollID: poll.ID,
+			UserID: u.CallbackQuery.From.ID,
+			Vote:   voteNum,
+		})
+	}
 	if err != nil {
 		return err
 	}
@@ -523,7 +544,7 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 
 	found := false
 	for _, user := range users {
-		if user.ID == u.PollAnswer.User.ID {
+		if user.ID == u.CallbackQuery.From.ID {
 			found = true
 			break
 		}
@@ -573,11 +594,26 @@ func handlePollAnswer(bot *tg.Bot, u tg.Update) error {
 		remainings,
 	)
 
+	up := "👍 " + fmt.Sprint(positiveCount)
+	down := "👎 " + fmt.Sprint(negativeCount)
+
 	_, err = bot.EditMessageText(tg.EditMessageTextParams{
 		ChatID:    poll.ChatID,
 		MessageID: poll.ResultMessageID,
 		Text:      txt,
 		ParseMode: "MarkdownV2",
+		ReplyMarkup: &tg.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tg.InlineKeyboardButton{{
+				tg.InlineKeyboardButton{
+					Text:         up,
+					CallbackData: "0",
+				},
+				tg.InlineKeyboardButton{
+					Text:         down,
+					CallbackData: "1",
+				},
+			}},
+		},
 	})
 	return err
 }

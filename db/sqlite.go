@@ -395,6 +395,12 @@ func (db *DB) FindPoll(pollID string) (*Poll, error) {
 	return &p, err
 }
 
+func (db *DB) FindPollByMessage(msgID int) (*Poll, error) {
+	var p Poll
+	err := queryRow(db.db, &p, `SELECT * FROM poll WHERE result_message_id = $1`, msgID)
+	return &p, err
+}
+
 func (db *DB) FindLastPollByTopic(topic string) (*Poll, error) {
 	var p Poll
 	err := queryRow(db.db, &p, `
@@ -414,7 +420,7 @@ type PollVote struct {
 func (v *PollVote) ColumnMap() map[string]any {
 	return map[string]any{
 		"poll_id": &v.PollID,
-		"user_d":  &v.UserID,
+		"user_id": &v.UserID,
 		"vote":    &v.Vote,
 	}
 }
