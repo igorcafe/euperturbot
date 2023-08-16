@@ -3,11 +3,14 @@ package db
 import (
 	"database/sql"
 	"log"
+	"sync"
 	"time"
 )
 
 type DB struct {
-	db *sql.DB
+	db      *sql.DB
+	stmts   map[string]*sql.Stmt
+	stmtsMu *sync.RWMutex
 }
 
 type ColumnMapper interface {
@@ -74,11 +77,52 @@ func NewSqlite(dsn string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{db}, nil
+	return &DB{
+		db,
+		make(map[string]*sql.Stmt),
+		new(sync.RWMutex),
+	}, nil
 }
 
 func (db *DB) Close() error {
 	return db.db.Close()
+}
+
+func (db *DB) prepareCached(query string) (*sql.Stmt, error) {
+	db.stmtsMu.RLock()
+	stmt, ok := db.stmts[query]
+	db.stmtsMu.RUnlock()
+
+	if ok {
+		return stmt, nil
+	}
+
+	stmt, err := db.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+
+	db.stmtsMu.Lock()
+	db.stmts[query] = stmt
+	db.stmtsMu.Unlock()
+
+	return stmt, nil
+}
+
+func (db *DB) execStmt(query string, args ...any) (sql.Result, error) {
+	stmt, err := db.prepareCached(query)
+	if err != nil {
+		return nil, err
+	}
+	return stmt.Exec(args...)
+}
+
+func (db *DB) queryStmt(query string, args ...any) (*sql.Rows, error) {
+	stmt, err := db.prepareCached(query)
+	if err != nil {
+		return nil, err
+	}
+	return stmt.Query(args...)
 }
 
 func scanCols(rows *sql.Rows, colNames []string, entity ColumnMapper) error {
