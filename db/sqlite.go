@@ -63,6 +63,11 @@ func NewSqlite(dsn string) (*DB, error) {
 			FOREIGN KEY (poll_id) REFERENCES poll(id),
 			PRIMARY KEY(poll_id, user_id)
 		);
+
+		CREATE TABLE IF NOT EXISTS voice (
+			file_id TEXT PRIMARY KEY,
+			user_id INTEGER NOT NULL
+		)
 	`
 
 	_, err = db.Exec(migrations)
@@ -469,5 +474,32 @@ func (db *DB) FindPollVote(pollID string, userID int64) (*PollVote, error) {
 		SELECT * FROM poll_vote
 		WHERE poll_id = $1 AND user_id = $2
 	`, pollID, userID)
+	return &v, err
+}
+
+type Voice struct {
+	FileID string
+	UserID int64
+}
+
+func (v *Voice) ColumnMap() map[string]any {
+	return map[string]any{
+		"file_id": &v.FileID,
+		"user_id": &v.UserID,
+	}
+}
+
+func (db *DB) SaveVoice(v Voice) error {
+	_, err := db.db.Exec(`
+		INSERT INTO voice (file_id, user_id)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, v.FileID, v.UserID)
+	return err
+}
+
+func (db *DB) FindRandomVoice() (*Voice, error) {
+	var v Voice
+	err := queryRow(db.db, &v, `SELECT * FROM voice ORDER BY RANDOM() LIMIT 1`)
 	return &v, err
 }

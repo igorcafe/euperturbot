@@ -35,10 +35,33 @@ func (uh *UpdateHandler) Handle(criteria CriteriaFunc, handler func(bot *Bot, u 
 	})
 }
 
+func (uh *UpdateHandler) HandleMessage(handler func(bot *Bot, u Update) error) {
+	criteria := func(u Update) bool {
+		return u.Message != nil
+	}
+	uh.Handle(criteria, handler)
+}
+
 func (uh *UpdateHandler) HandleText(handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
 		return u.Message != nil && u.Message.Text != ""
 	}
+	uh.Handle(criteria, handler)
+}
+
+func (uh *UpdateHandler) HandleTextEqual(texts []string, handler func(bot *Bot, u Update) error) {
+	criteria := func(u Update) bool {
+		if u.Message == nil {
+			return false
+		}
+		for _, t := range texts {
+			if u.Message.Text == t {
+				return true
+			}
+		}
+		return false
+	}
+
 	uh.Handle(criteria, handler)
 }
 

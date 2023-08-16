@@ -59,7 +59,11 @@ func main() {
 	h.HandleCommand("listudo", handleListChatTopics)
 	h.HandleCommand("conta", handleCountEvent)
 	h.HandleCommand("desconta", handleUncountEvent)
+	h.HandleCommand("a", handleSaveAudio)
+	h.HandleCommand("arand", handleSendRandomAudio)
 	h.HandleCallbackQuery(handleCallbackQuery)
+	h.HandleMessage(handleMessage)
+	// h.HandleTextEqual([]string{"and", "e", "and?", "e?", "askers", "askers?"}, handleAskers)
 	h.Start()
 }
 
@@ -259,66 +263,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	users, err := myDB.FindUsersByTopic(u.Message.Chat.ID, topic)
-	if err != nil {
-		return tg.SendMessageParams{
-			Text: "falha ao listar usuários",
-		}
-	}
-
-	if len(users) == 0 {
-		return tg.SendMessageParams{
-			Text: "não tem ninguém inscrito nesse tópico",
-		}
-	}
-
-	txt := fmt.Sprintf(
-		"*sim \\(0 votos\\)*\n\n"+
-			"*não \\(0 votos\\)*\n\n"+
-			"*restam \\(%d votos\\)*\n",
-		len(users),
-	)
-
-	for _, u := range users {
-		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", u.Name(), u.ID)
-	}
-
-	up := "👍 0"
-	down := "👎 0"
-
-	msg, err := bot.SendMessage(tg.SendMessageParams{
-		ChatID:           u.Message.Chat.ID,
-		Text:             txt,
-		ParseMode:        "MarkdownV2",
-		ReplyToMessageID: u.Message.MessageID,
-		ReplyMarkup: &tg.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tg.InlineKeyboardButton{{
-				tg.InlineKeyboardButton{
-					Text:         up,
-					CallbackData: "0",
-				},
-				tg.InlineKeyboardButton{
-					Text:         down,
-					CallbackData: "1",
-				},
-			}},
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = myDB.SavePoll(db.Poll{
-		ID:              strconv.Itoa(msg.MessageID),
-		ChatID:          u.Message.Chat.ID,
-		Topic:           topic,
-		ResultMessageID: msg.MessageID,
-	})
-	if err != nil {
-		return err
-	}
-
-	return err
+	return callSubs(bot, u, topic)
 }
 
 func handleListUserTopics(bot *tg.Bot, u tg.Update) error {
@@ -462,44 +407,90 @@ func handleUncountEvent(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
-func handleSpam(bot *tg.Bot, u tg.Update) error {
-	panic("TODO")
-	// if u.Message.From.ID != godID {
-	// 	_, err := replyToMessage(bot, u.Message, &tg.SendMessageParams{
-	// 		Text: "sai man so faço isso pro @igorcafe",
-	// 	})
-	// 	return err
-	// }
-
-	fields := strings.SplitN(u.Message.Text, " ", 3)
-	if len(fields) != 3 {
+func handleSaveAudio(bot *tg.Bot, u tg.Update) error {
+	if u.Message.ReplyToMessage == nil {
 		return tg.SendMessageParams{
-			Text: "uso: /spam <quantidade> <mensagem>",
+			Text: "responda ao audio que quer salvar",
 		}
 	}
 
-	count, err := strconv.Atoi(fields[1])
+	if u.Message.ReplyToMessage.Voice == nil {
+		return tg.SendMessageParams{
+			Text: "tem que ser uma mensagem de voz",
+		}
+	}
+
+	err := myDB.SaveVoice(db.Voice{
+		FileID: u.Message.ReplyToMessage.Voice.FileID,
+		UserID: u.Message.ReplyToMessage.From.ID,
+	})
 	if err != nil {
+		return err
+	}
+
+	return tg.SendMessageParams{
+		Text: "áudio salvo",
+	}
+}
+
+func handleSendRandomAudio(bot *tg.Bot, u tg.Update) error {
+	voice, err := myDB.FindRandomVoice()
+	if errors.Is(err, sql.ErrNoRows) {
 		return tg.SendMessageParams{
-			Text: fmt.Sprintf("quantidade inválida: '%s'", fields[1]),
+			Text: "nenhum áudio salvo para mandar",
 		}
 	}
-
-	limit := make(chan struct{}, 10)
-
-	for i := 0; i < count; i++ {
-		limit <- struct{}{}
-		go func() {
-			// _, err = bot.SendMessage(tg.SendMessageParams{
-			// 	ChatID: u.Message.Chat.ID,
-			// 	Text:   fields[2],
-			// })
-			// if err != nil {
-			// 	log.Print(err)
-			// }
-			<-limit
-		}()
+	if err != nil {
+		return err
 	}
+	_, err = bot.SendVoice(tg.SendVoiceParams{
+		ChatID:           u.Message.Chat.ID,
+		Voice:            voice.FileID,
+		ReplyToMessageID: u.Message.MessageID,
+	})
+	return err
+}
+
+var messageCount atomic.Int32
+
+func handleMessage(bot *tg.Bot, u tg.Update) error {
+	t := u.Message.Text
+	t = strings.TrimSpace(t)
+	if strings.HasPrefix(t, "#") {
+		if err := validateTopic(t); err != nil {
+			return nil
+		}
+		return callSubs(bot, u, t)
+	}
+
+	date := time.Unix(u.Message.Date, 0)
+	if time.Since(date).Minutes() > 1 {
+		return nil
+	}
+
+	n := messageCount.Add(1)
+	const target = 150
+	if n > target {
+		messageCount.Store(0)
+	}
+
+	if n%10 == 0 {
+		fmt.Printf("%d messages remaining\n", target-n)
+	}
+
+	if messageCount.CompareAndSwap(target, 0) {
+		voice, err := myDB.FindRandomVoice()
+		if err != nil {
+			return err
+		}
+		_, err = bot.SendVoice(tg.SendVoiceParams{
+			ChatID:           u.Message.Chat.ID,
+			Voice:            voice.FileID,
+			ReplyToMessageID: u.Message.MessageID,
+		})
+		return err
+	}
+
 	return nil
 }
 
@@ -688,6 +679,9 @@ func validateTopic(topic string) error {
 	if strings.Contains(topic, "\n") {
 		return fmt.Errorf("tópico não pode ter mais de uma linha")
 	}
+	if strings.Contains(topic, "#") && strings.Contains(topic, " ") {
+		return fmt.Errorf("tópico com # não pode ter espaço")
+	}
 	return nil
 }
 
@@ -709,4 +703,64 @@ func username(user *tg.User) string {
 		s = sanitizeUsername(user.FirstName)
 	}
 	return s
+}
+
+func callSubs(bot *tg.Bot, u tg.Update, topic string) error {
+	users, err := myDB.FindUsersByTopic(u.Message.Chat.ID, topic)
+	if err != nil {
+		return tg.SendMessageParams{
+			Text: "falha ao listar usuários",
+		}
+	}
+
+	if len(users) == 0 {
+		return tg.SendMessageParams{
+			Text: "não tem ninguém inscrito nesse tópico",
+		}
+	}
+
+	txt := fmt.Sprintf(
+		"*sim \\(0 votos\\)*\n\n"+
+			"*não \\(0 votos\\)*\n\n"+
+			"*restam \\(%d votos\\)*\n",
+		len(users),
+	)
+
+	for _, u := range users {
+		txt += fmt.Sprintf("[%s](tg://user?id=%d)\n", u.Name(), u.ID)
+	}
+
+	up := "👍 0"
+	down := "👎 0"
+
+	msg, err := bot.SendMessage(tg.SendMessageParams{
+		ChatID:           u.Message.Chat.ID,
+		Text:             txt,
+		ParseMode:        "MarkdownV2",
+		ReplyToMessageID: u.Message.MessageID,
+		ReplyMarkup: &tg.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tg.InlineKeyboardButton{{
+				tg.InlineKeyboardButton{
+					Text:         up,
+					CallbackData: "0",
+				},
+				tg.InlineKeyboardButton{
+					Text:         down,
+					CallbackData: "1",
+				},
+			}},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = myDB.SavePoll(db.Poll{
+		ID:              strconv.Itoa(msg.MessageID),
+		ChatID:          u.Message.Chat.ID,
+		Topic:           topic,
+		ResultMessageID: msg.MessageID,
+	})
+
+	return err
 }

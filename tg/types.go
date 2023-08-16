@@ -8,6 +8,11 @@ type Message struct {
 	Chat           *Chat    `json:"chat"`
 	ReplyToMessage *Message `json:"reply_to_message"`
 	Poll           *Poll    `json:"poll"`
+	Voice          *Voice   `json:"voice"`
+}
+
+type Voice struct {
+	FileID string `json:"file_id"`
 }
 
 type Poll struct {
