@@ -44,7 +44,7 @@ func (uh *UpdateHandler) HandleMessage(handler func(bot *Bot, u Update) error) {
 
 func (uh *UpdateHandler) HandleText(handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
-		return u.Message != nil && u.Message.Text != ""
+		return u.Message != nil && strings.TrimSpace(u.Message.Text) != ""
 	}
 	uh.Handle(criteria, handler)
 }

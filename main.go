@@ -62,6 +62,7 @@ func main() {
 	h.HandleCommand("a", handleSaveAudio)
 	h.HandleCommand("arand", handleSendRandomAudio)
 	h.HandleCallbackQuery(handleCallbackQuery)
+	h.HandleText(handleText)
 	h.HandleMessage(handleMessage)
 	// h.HandleTextEqual([]string{"and", "e", "and?", "e?", "askers", "askers?"}, handleAskers)
 	h.Start()
@@ -222,7 +223,10 @@ func handleListSubs(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		return err
+		return tg.SendMessageParams{
+			ChatID: u.Message.Chat.ID,
+			Text:   err.Error(),
+		}
 	}
 
 	users, err := myDB.FindUsersByTopic(u.Message.Chat.ID, topic)
@@ -448,6 +452,19 @@ func handleSendRandomAudio(bot *tg.Bot, u tg.Update) error {
 		Voice:            voice.FileID,
 		ReplyToMessageID: u.Message.MessageID,
 	})
+	return err
+}
+
+func handleText(bot *tg.Bot, u tg.Update) error {
+	txt := u.Message.Text
+
+	err := myDB.SaveMessage(db.Message{
+		ID:       u.Message.MessageID,
+		Text:     txt,
+		Date:     time.Unix(u.Message.Date, 0),
+		UserName: username(u.Message.From),
+	})
+
 	return err
 }
 
@@ -685,9 +702,9 @@ func validateTopic(topic string) error {
 	return nil
 }
 
-func sanitizeUsername(topic string) string {
+func sanitizeUsername(name string) string {
 	s := ""
-	for _, r := range topic {
+	for _, r := range name {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsSpace(r) {
 			s += string(r)
 		}
@@ -696,13 +713,13 @@ func sanitizeUsername(topic string) string {
 }
 
 func username(user *tg.User) string {
-	s := ""
-	if user.Username != "" {
-		s = sanitizeUsername(user.Username)
-	} else {
-		s = sanitizeUsername(user.FirstName)
+	if user == nil {
+		return ""
 	}
-	return s
+	if user.Username != "" {
+		return sanitizeUsername(user.Username)
+	}
+	return sanitizeUsername(user.FirstName)
 }
 
 func callSubs(bot *tg.Bot, u tg.Update, topic string) error {

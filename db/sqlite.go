@@ -498,3 +498,28 @@ func (db *DB) FindRandomVoice() (*Voice, error) {
 	err := queryRow(db.db, &v, `SELECT * FROM voice ORDER BY RANDOM() LIMIT 1`)
 	return &v, err
 }
+
+type Message struct {
+	ID       int
+	Text     string
+	Date     time.Time
+	UserName string
+}
+
+func (db *DB) SaveMessage(msg Message) error {
+	if len(msg.Text) > 500 {
+		msg.Text = msg.Text[:500]
+	}
+
+	_, err := db.db.Exec(`
+		INSERT INTO message (
+			id,
+			date,
+			text,
+			user_name
+		)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT DO UPDATE SET text = $3
+	`, msg.ID, msg.Date, msg.Text, msg.UserName)
+	return err
+}
