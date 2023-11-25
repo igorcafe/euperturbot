@@ -267,7 +267,7 @@ func handleCallSubs(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	return callSubs(bot, u, topic)
+	return callSubs(bot, u, topic, false)
 }
 
 func handleListUserTopics(bot *tg.Bot, u tg.Update) error {
@@ -722,15 +722,21 @@ func username(user *tg.User) string {
 	return sanitizeUsername(user.FirstName)
 }
 
-func callSubs(bot *tg.Bot, u tg.Update, topic string) error {
+func callSubs(bot *tg.Bot, u tg.Update, topic string, quiet bool) error {
 	users, err := myDB.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
+		if quiet {
+			return err
+		}
 		return tg.SendMessageParams{
 			Text: "falha ao listar usuários",
 		}
 	}
 
 	if len(users) == 0 {
+		if quiet {
+			return nil
+		}
 		return tg.SendMessageParams{
 			Text: "não tem ninguém inscrito nesse tópico",
 		}
