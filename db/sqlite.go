@@ -1,7 +1,9 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"io"
 	"log"
 	"sync"
 	"time"
@@ -9,8 +11,22 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type executor interface {
+	// TODO: remove and use only contexted functions
+	sqlx.Execer
+	sqlx.Queryer
+	QueryRow(query string, args ...any) *sql.Row
+	Select(dest any, query string, args ...any) error
+
+	io.Closer
+	sqlx.QueryerContext
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	SelectContext(ctx context.Context, dest any, query string, args ...any) error
+	sqlx.ExecerContext
+}
+
 type DB struct {
-	db      *sqlx.DB
+	db      executor
 	stmts   map[string]*sql.Stmt
 	stmtsMu *sync.RWMutex
 }
@@ -96,7 +112,7 @@ func scanCols(rows *sql.Rows, colNames []string, entity ColumnMapper) error {
 	return rows.Scan(dest...)
 }
 
-func queryRow(db *sqlx.DB, dest ColumnMapper, query string, args ...any) error {
+func queryRow(db executor, dest ColumnMapper, query string, args ...any) error {
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return err
@@ -120,7 +136,7 @@ func queryRow(db *sqlx.DB, dest ColumnMapper, query string, args ...any) error {
 	return err
 }
 
-func querySlice[E any](db *sqlx.DB, query string, args []any, dest func(*E) map[string]any) ([]E, error) {
+func querySlice[E any](db executor, query string, args []any, dest func(*E) map[string]any) ([]E, error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
