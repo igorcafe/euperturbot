@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/env"
+	"github.com/igoracmelo/euperturbot/openai"
 	"github.com/igoracmelo/euperturbot/tg"
 	"github.com/igoracmelo/euperturbot/util"
 )
@@ -24,6 +26,7 @@ import (
 var token string
 var godID int64
 var myDB *db.DB
+var myOpenai *openai.Client
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -36,6 +39,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	myOpenai = openai.NewClient(env.Must("OPENAI_KEY"))
 
 	bot := tg.NewBot(token)
 	if err != nil {
@@ -61,6 +66,7 @@ func main() {
 	h.HandleCommand("desconta", handleUncountEvent)
 	h.HandleCommand("a", handleSaveAudio)
 	h.HandleCommand("arand", handleSendRandomAudio)
+	h.HandleCommand("resuma", handleSummarizeMessages)
 	h.HandleCallbackQuery(handleCallbackQuery)
 	h.HandleText(handleText)
 	h.HandleMessage(handleMessage)
@@ -458,11 +464,26 @@ func handleSendRandomAudio(bot *tg.Bot, u tg.Update) error {
 func handleText(bot *tg.Bot, u tg.Update) error {
 	txt := u.Message.Text
 
+	name := username(u.Message.From)
+	id := u.Message.From.ID
+
+	if u.Message.FowardFrom != nil {
+		name = username(u.Message.FowardFrom) + "(forward)"
+		id = u.Message.FowardFrom.ID
+	}
+
+	if u.Message.ForwardSenderName != "" {
+		id = 0
+		name = sanitizeUsername(u.Message.ForwardSenderName)
+	}
+
 	err := myDB.SaveMessage(db.Message{
 		ID:       u.Message.MessageID,
+		ChatID:   u.Message.Chat.ID,
 		Text:     txt,
 		Date:     time.Unix(u.Message.Date, 0),
-		UserName: username(u.Message.From),
+		UserID:   id,
+		UserName: name,
 	})
 
 	return err
@@ -477,7 +498,7 @@ func handleMessage(bot *tg.Bot, u tg.Update) error {
 		if err := validateTopic(t); err != nil {
 			return nil
 		}
-		return callSubs(bot, u, t)
+		return callSubs(bot, u, t, true)
 	}
 
 	date := time.Unix(u.Message.Date, 0)
@@ -509,6 +530,95 @@ func handleMessage(bot *tg.Bot, u tg.Update) error {
 	}
 
 	return nil
+}
+
+func handleSummarizeMessages(bot *tg.Bot, u tg.Update) error {
+	if u.Message.From.ID != godID {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "desculpe mas nao posso te deixar gastar os creditos do igorcafe",
+		}
+	}
+
+	chunks := strings.SplitN(u.Message.Text, " ", 2)
+	if len(chunks) != 2 {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "faltou o critério para resumir (ex.: hoje, ontem, 10, -5)",
+		}
+	}
+
+	cryteria := strings.TrimSpace(chunks[1])
+	var msgs []db.Message
+
+	count, err := strconv.Atoi(cryteria)
+
+	if err == nil {
+		if count > 100 {
+			count = 100
+		}
+		if count < 0 {
+			return tg.SendMessageParams{
+				ReplyToMessageID: u.Message.MessageID,
+				Text:             "negativo nao suportado ainda",
+			}
+		}
+		if u.Message.ReplyToMessage == nil {
+			return tg.SendMessageParams{
+				ReplyToMessageID: u.Message.MessageID,
+				Text:             "responda a mensagem",
+			}
+		}
+		msgs, err = myDB.FindMessagesAfterDate(u.Message.Chat.ID, time.Unix(u.Message.ReplyToMessage.Date, 0), count)
+
+	} else if cryteria == "hoje" {
+		msgs, err = myDB.FindMessagesByDate(u.Message.Chat.ID, time.Unix(u.Message.Date, 0))
+
+	} else {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "critério desconhecido",
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	msgTxts := []string{}
+	totalLen := 0
+	// reURL := regexp.MustCompile(`https?:\/\/\S+`)
+	reMultiSpace := regexp.MustCompile(`\s+`)
+	for _, m := range msgs {
+		txt := m.UserName + ": " + m.Text
+		// txt = reURL.ReplaceAllString(txt, "")
+		txt = reMultiSpace.ReplaceAllString(txt, " ")
+		totalLen += len(txt)
+		if totalLen > 2000 {
+			break
+		}
+		msgTxts = append(msgTxts, txt)
+	}
+
+	log.Printf("summarizing %d messages", len(msgTxts))
+
+	prompt := "Faça somente um resumo em português do conteudo da seguinte conversa de forma breve em ate 10 bullet points, citando o nickname dos participantes. Não faça comentários, não invente histórias, não diga nada além dos bullet points.\n\n"
+	prompt += strings.Join(msgTxts, "\n")
+
+	resp, err := myOpenai.Completion(&openai.CompletionParams{
+		Messages: []string{prompt},
+	})
+	if err != nil {
+		log.Print(err)
+		return tg.SendMessageParams{
+			Text: "falha ao obter resultado da OpenAI",
+		}
+	}
+
+	return tg.SendMessageParams{
+		ReplyToMessageID: u.Message.MessageID,
+		Text:             resp.Choices[0].Message.Content,
+	}
 }
 
 func handleCallbackQuery(bot *tg.Bot, u tg.Update) error {

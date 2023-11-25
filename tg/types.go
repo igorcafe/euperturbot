@@ -1,14 +1,16 @@
 package tg
 
 type Message struct {
-	MessageID      int      `json:"message_id"`
-	Date           int64    `json:"date"`
-	Text           string   `json:"text"`
-	From           *User    `json:"from"`
-	Chat           *Chat    `json:"chat"`
-	ReplyToMessage *Message `json:"reply_to_message"`
-	Poll           *Poll    `json:"poll"`
-	Voice          *Voice   `json:"voice"`
+	MessageID         int      `json:"message_id"`
+	Date              int64    `json:"date"`
+	Text              string   `json:"text"`
+	ForwardSenderName string   `json:"forward_sender_name"`
+	From              *User    `json:"from"`
+	FowardFrom        *User    `json:"forward_from"`
+	Chat              *Chat    `json:"chat"`
+	ReplyToMessage    *Message `json:"reply_to_message"`
+	Poll              *Poll    `json:"poll"`
+	Voice             *Voice   `json:"voice"`
 }
 
 type Voice struct {

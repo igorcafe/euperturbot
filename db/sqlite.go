@@ -57,43 +57,6 @@ func (db *DB) Close() error {
 	return db.db.Close()
 }
 
-func (db *DB) prepareCached(query string) (*sql.Stmt, error) {
-	db.stmtsMu.RLock()
-	stmt, ok := db.stmts[query]
-	db.stmtsMu.RUnlock()
-
-	if ok {
-		return stmt, nil
-	}
-
-	stmt, err := db.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-
-	db.stmtsMu.Lock()
-	db.stmts[query] = stmt
-	db.stmtsMu.Unlock()
-
-	return stmt, nil
-}
-
-func (db *DB) execStmt(query string, args ...any) (sql.Result, error) {
-	stmt, err := db.prepareCached(query)
-	if err != nil {
-		return nil, err
-	}
-	return stmt.Exec(args...)
-}
-
-func (db *DB) queryStmt(query string, args ...any) (*sql.Rows, error) {
-	stmt, err := db.prepareCached(query)
-	if err != nil {
-		return nil, err
-	}
-	return stmt.Query(args...)
-}
-
 func scanCols(rows *sql.Rows, colNames []string, entity ColumnMapper) error {
 	dest := make([]any, len(colNames))
 	var discard any
@@ -519,25 +482,66 @@ func (db *DB) FindRandomVoice() (*Voice, error) {
 
 type Message struct {
 	ID       int
+	ChatID   int64 `db:"chat_id"`
 	Text     string
 	Date     time.Time
-	UserName string
+	UserID   int64  `db:"user_id"`
+	UserName string `db:"user_name"`
 }
 
 func (db *DB) SaveMessage(msg Message) error {
 	if len(msg.Text) > 500 {
-		msg.Text = msg.Text[:500]
+		msg.Text = msg.Text[:497] + "..."
 	}
 
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO message (
 			id,
+			chat_id,
 			date,
 			text,
+			user_id,
 			user_name
 		)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT DO UPDATE SET text = $3
-	`, msg.ID, msg.Date, msg.Text, msg.UserName)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT DO UPDATE SET text = $4
+	`,
+		msg.ID,
+		msg.ChatID,
+		msg.Date,
+		msg.Text,
+		msg.UserID,
+		msg.UserName,
+	)
 	return err
+}
+
+func (db *DB) FindMessagesByDate(chatID int64, date time.Time) ([]Message, error) {
+	msgs := []Message{}
+	err := db.db.SelectContext(context.TODO(), &msgs, `
+		SELECT *
+		FROM message
+		WHERE
+			chat_id = $1 AND
+			date >= DATE($2) AND
+			date < DATE($2, '+1 day')
+		ORDER BY date
+	`, chatID, date)
+
+	return msgs, err
+}
+
+func (db *DB) FindMessagesAfterDate(chatID int64, date time.Time, count int) ([]Message, error) {
+	msgs := []Message{}
+	err := db.db.SelectContext(context.TODO(), &msgs, `
+		SELECT *
+		FROM message
+		WHERE
+			chat_id = $1 AND
+			date >= $2
+		ORDER BY date
+		LIMIT $3
+	`, chatID, date, count)
+
+	return msgs, err
 }
