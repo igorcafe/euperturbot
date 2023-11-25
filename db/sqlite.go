@@ -5,10 +5,12 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type DB struct {
-	db      *sql.DB
+	db      *sqlx.DB
 	stmts   map[string]*sql.Stmt
 	stmtsMu *sync.RWMutex
 }
@@ -18,7 +20,7 @@ type ColumnMapper interface {
 }
 
 func NewSqlite(dsn string) (*DB, error) {
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sqlx.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +96,7 @@ func scanCols(rows *sql.Rows, colNames []string, entity ColumnMapper) error {
 	return rows.Scan(dest...)
 }
 
-func queryRow(db *sql.DB, dest ColumnMapper, query string, args ...any) error {
+func queryRow(db *sqlx.DB, dest ColumnMapper, query string, args ...any) error {
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return err
@@ -118,7 +120,7 @@ func queryRow(db *sql.DB, dest ColumnMapper, query string, args ...any) error {
 	return err
 }
 
-func querySlice[E any](db *sql.DB, query string, args []any, dest func(*E) map[string]any) ([]E, error) {
+func querySlice[E any](db *sqlx.DB, query string, args []any, dest func(*E) map[string]any) ([]E, error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
