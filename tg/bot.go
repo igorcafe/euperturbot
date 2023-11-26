@@ -7,7 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"path"
+	"strings"
 	"time"
 
 	"github.com/igoracmelo/euperturbot/util"
@@ -70,7 +70,7 @@ func apiJSONRequest[T any](bot *Bot, path string, data any) (*Result[T], error) 
 
 	respBody, err := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return nil, botRespError(resp, reqBody, respBody)
+		return nil, bot.respError(resp, reqBody, respBody)
 	}
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (bot *Bot) GetUpdatesChannel() chan Update {
 			}
 			updates, err := bot.GetUpdates(params)
 			if err != nil {
-				log.Print(err)
+				log.Print(bot.hideToken(err.Error()))
 			}
 			for _, u := range updates {
 				updateID = u.UpdateID + 1
@@ -160,7 +160,11 @@ func (bot *Bot) EditMessageText(params EditMessageTextParams) (*Message, error) 
 	return &res.Result, nil
 }
 
-func botRespError(resp *http.Response, reqBody []byte, respBody []byte) error {
-	u := path.Base(resp.Request.URL.String())
+func (bot *Bot) hideToken(s string) string {
+	return strings.ReplaceAll(s, bot.token, "<token>")
+}
+
+func (bot *Bot) respError(resp *http.Response, reqBody []byte, respBody []byte) error {
+	u := bot.hideToken(resp.Request.URL.String())
 	return fmt.Errorf("call to %s (%s): status %s %s", u, string(reqBody), resp.Status, string(respBody))
 }
