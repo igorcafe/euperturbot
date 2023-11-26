@@ -2,27 +2,13 @@ package db
 
 import (
 	"context"
-	"database/sql"
-	"io"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 )
 
-type executor interface {
-	// TODO: remove and use only contexted functions
-	sqlx.Execer
-
-	io.Closer
-	sqlx.QueryerContext
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	GetContext(ctx context.Context, dest any, query string, args ...any) error
-	SelectContext(ctx context.Context, dest any, query string, args ...any) error
-	sqlx.ExecerContext
-}
-
 type DB struct {
-	db executor
+	db *sqlx.DB
 }
 
 func NewSqlite(dsn string) (*DB, error) {
@@ -59,7 +45,7 @@ func (u *User) Name() string {
 }
 
 func (db *DB) SaveUser(u User) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO user
 		(id, first_name, username)
 		VALUES ($1, $2, $3)
@@ -98,7 +84,7 @@ func (db *DB) ExistsChatTopic(chatID int64, topic string) (bool, error) {
 }
 
 func (db *DB) SaveUserTopic(topic UserTopic) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO user_topic
 		(chat_id, user_id, topic)
 		VALUES ($1, $2, $3)
@@ -109,7 +95,7 @@ func (db *DB) SaveUserTopic(topic UserTopic) error {
 }
 
 func (db *DB) DeleteUserTopic(topic UserTopic) (int64, error) {
-	res, err := db.db.Exec(`
+	res, err := db.db.ExecContext(context.TODO(), `
 		DELETE FROM user_topic
 		WHERE chat_id = $1 AND user_id = $2 AND topic = $3
 	`, topic.ChatID, topic.UserID, topic.Topic)
@@ -168,7 +154,7 @@ type ChatEvent struct {
 }
 
 func (db *DB) SaveChatEvent(e ChatEvent) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO event
 		(chat_id, msg_id, time, name)
 		VALUES ($1, $2, $3, $4)
@@ -190,7 +176,7 @@ func (db *DB) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, erro
 }
 
 func (db *DB) DeleteChatEvent(e ChatEvent) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		DELETE FROM event
 		WHERE chat_id = $1 AND msg_id = $2 AND name = $3
 	`, e.ChatID, e.MsgID, e.Name)
@@ -205,7 +191,7 @@ type Poll struct {
 }
 
 func (db *DB) SavePoll(p Poll) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO poll
 		(id, chat_id, topic, result_message_id)
 		VALUES ($1, $2, $3, $4)
@@ -243,7 +229,7 @@ type PollVote struct {
 }
 
 func (db *DB) SavePollVote(v PollVote) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO poll_vote
 		(poll_id, user_id, vote)
 		VALUES ($1, $2, $3)
@@ -254,7 +240,7 @@ func (db *DB) SavePollVote(v PollVote) error {
 }
 
 func (db *DB) DeletePollVote(pollID string, userID int64) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		DELETE FROM poll_vote
 		WHERE poll_id = $1 AND user_id = $2
 	`, pollID, userID)
@@ -286,7 +272,7 @@ type Voice struct {
 }
 
 func (db *DB) SaveVoice(v Voice) error {
-	_, err := db.db.Exec(`
+	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO voice (file_id, user_id)
 		VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
