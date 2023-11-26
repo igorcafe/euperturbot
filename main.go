@@ -2,16 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -28,8 +29,6 @@ var token string
 var godID int64
 var myDB *db.DB
 var myOpenai *openai.Client
-var openaiLastReq = time.Time{}
-var openaiMu = new(sync.Mutex)
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -545,17 +544,6 @@ func handleGPTCompletion(bot *tg.Bot, u tg.Update) error {
 
 	name := username(u.Message.From)
 
-	openaiMu.Lock()
-	defer openaiMu.Unlock()
-
-	wait := 20*time.Second - time.Since(openaiLastReq)
-	if wait > 0 {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             fmt.Sprintf("ignorated kk rate limit (%ds)", int(wait.Seconds())),
-		}
-	}
-
 	msg, err := bot.SendMessage(tg.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
@@ -566,17 +554,31 @@ func handleGPTCompletion(bot *tg.Bot, u tg.Update) error {
 	}
 
 	resp, err := myOpenai.Completion(&openai.CompletionParams{
-		Messages: []string{
-			fmt.Sprintf(
+		Messages: []openai.Message{
+			{
+				Content: fmt.Sprintf(
 				"Meu nome é %s. Me responda com @%s.\n%s",
 				name,
 				name,
 				chunks[1],
 			),
 		},
+		},
 	})
-	openaiLastReq = time.Now()
+	if errors.Is(err, openai.ErrRateLimit) {
+		_, err = bot.EditMessageText(tg.EditMessageTextParams{
+			ChatID:    u.Message.Chat.ID,
+			MessageID: msg.MessageID,
+			Text:      "ignorated kk rate limit",
+		})
+		return err
+	}
 	if err != nil {
+		_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+			ChatID:    u.Message.Chat.ID,
+			MessageID: msg.MessageID,
+			Text:      "vish deu ruim",
+		})
 		return err
 	}
 
@@ -584,7 +586,18 @@ func handleGPTCompletion(bot *tg.Bot, u tg.Update) error {
 		ChatID:    u.Message.Chat.ID,
 		MessageID: msg.MessageID,
 		Text:      resp.Choices[0].Message.Content,
+		ParseMode: "MarkdownV2",
 	})
+
+	var boterr tg.BotError
+	if errors.As(err, &boterr); boterr.Status == http.StatusBadRequest {
+	_, err = bot.EditMessageText(tg.EditMessageTextParams{
+		ChatID:    u.Message.Chat.ID,
+		MessageID: msg.MessageID,
+		Text:      resp.Choices[0].Message.Content,
+	})
+	}
+
 	return err
 }
 
@@ -615,35 +628,29 @@ func handleGPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		title = u.Message.Chat.FirstName
 	}
 
-	prompts := []string{
-		fmt.Sprintf(
+	prompts := []openai.Message{
+		{
+			Content: fmt.Sprintf(
 			"Mensagens recentes do chat %s para voce se contextualizar, no formato '<usuario>: <texto>'\n\n%s",
 			title,
 			strings.Join(prepareTextForGPT(msgs), "\n"),
 		),
-		fmt.Sprintf(
+		},
+		{
+			Content: fmt.Sprintf(
 			"Me chame de @%s e responda a mensagem abaixo. Se baseie no historico de mensagens acima e nos nomes de usuarios para responde. NÃO crie diálogos, apenas me responda com as informações fornecidas. As palavras 'grupo', 'chat', 'conversa', 'historico' todas se referecem ao historico do chat %s acima. Nao mencione o nome do grupo. Responda a seguinte me mencionando em segunda pessoa, usando @%s\n\n%s",
 			name,
 			title,
 			name,
 			chunks[1],
 		),
+		},
 	}
 
 	// for _, p := range prompts {
 	// 	fmt.Println(p)
 	// 	fmt.Println()
 	// }
-
-	openaiMu.Lock()
-	defer openaiMu.Unlock()
-
-	if time.Since(openaiLastReq) < 20*time.Second {
-	return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "ignorated kk rate limit",
-		}
-	}
 
 	msg, err := bot.SendMessage(tg.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
@@ -658,7 +665,12 @@ func handleGPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		Messages:    prompts,
 		Temperature: 0.5,
 	})
-	openaiLastReq = time.Now()
+	if errors.Is(err, openai.ErrRateLimit) {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "ignorated kk rate limit",
+		}
+	}
 	if err != nil {
 		return err
 	}

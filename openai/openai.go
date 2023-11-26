@@ -3,7 +3,10 @@ package openai
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/igoracmelo/euperturbot/util"
 )
@@ -11,29 +14,44 @@ import (
 type Client struct {
 	key  string
 	http http.Client
+	mut  *sync.Mutex
 }
 
 func NewClient(key string) *Client {
 	return &Client{
 		key: key,
+		mut: new(sync.Mutex),
 	}
 }
 
 type CompletionParams struct {
 	Model       string
-	Messages    []string
+	Messages    []Message
 	Temperature float64
+}
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 type CompletionResponse struct {
 	Choices []struct {
-		Message struct {
-			Content string
-		}
+		Message Message `json:"message"`
 	}
 }
 
+var ErrRateLimit = errors.New("rate limit")
+
 func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, error) {
+	if !c.mut.TryLock() {
+		return nil, ErrRateLimit
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	defer func() {
+		time.Sleep(time.Until(deadline))
+		c.mut.Unlock()
+	}()
+
 	if params.Model == "" {
 		params.Model = "gpt-3.5-turbo"
 	}
@@ -41,17 +59,16 @@ func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, erro
 		params.Temperature = 0.7
 	}
 
-	messages := make([]map[string]string, len(params.Messages))
 	for i, m := range params.Messages {
-		messages[i] = map[string]string{
-			"role":    "user",
-			"content": m,
+		if m.Role == "" {
+			m.Role = "user"
 		}
+		params.Messages[i] = m
 	}
 
 	payload := map[string]any{
 		"model":       params.Model,
-		"messages":    messages,
+		"messages":    params.Messages,
 		"temperature": params.Temperature,
 	}
 

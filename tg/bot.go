@@ -165,6 +165,27 @@ func (bot *Bot) hideToken(s string) string {
 }
 
 func (bot *Bot) respError(resp *http.Response, reqBody []byte, respBody []byte) error {
-	u := bot.hideToken(resp.Request.URL.String())
-	return fmt.Errorf("call to %s (%s): status %s %s", u, string(reqBody), resp.Status, string(respBody))
+	err := BotError{}
+	err.Path = bot.hideToken(resp.Request.URL.String())
+	err.Status = resp.StatusCode
+	err.RequestBody = reqBody
+	err.ResponseBody = respBody
+	return err
+}
+
+type BotError struct {
+	Path         string
+	Status       int
+	RequestBody  []byte
+	ResponseBody []byte
+}
+
+func (e BotError) Error() string {
+	return fmt.Sprintf(
+		"POST %s\n%s\n\nStatus %s\n\n%s",
+		e.Path,
+		string(e.RequestBody),
+		http.StatusText(e.Status),
+		string(e.ResponseBody),
+	)
 }
