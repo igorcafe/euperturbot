@@ -20,7 +20,7 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/env"
-	"github.com/igoracmelo/euperturbot/openai"
+	"github.com/igoracmelo/euperturbot/oai"
 	"github.com/igoracmelo/euperturbot/tg"
 	"github.com/igoracmelo/euperturbot/util"
 )
@@ -28,7 +28,8 @@ import (
 var token string
 var godID int64
 var myDB *db.DB
-var myOpenai *openai.Client
+var myOAI *oai.Client
+var botInfo *tg.User
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -41,15 +42,19 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	err = myDB.Migrate(context.Background())
+	if err != nil {
+		panic(err)
+	}
 
-	myOpenai = openai.NewClient(env.Must("OPENAI_KEY"))
+	myOAI = oai.NewClient(env.Must("OPENAI_KEY"))
 
 	bot := tg.NewBot(token)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = bot.GetMe()
+	botInfo, err = bot.GetMe()
 	if err != nil {
 		panic(err)
 	}
@@ -71,6 +76,7 @@ func main() {
 	h.HandleCommand("ask", handleGPTCompletion)
 	h.HandleCommand("cask", handleGPTChatCompletion)
 	h.HandleCallbackQuery(handleCallbackQuery)
+	h.HandleInlineQuery(handleInlineQuery)
 	h.HandleText(handleText)
 	h.HandleMessage(handleMessage)
 	// h.HandleTextEqual([]string{"and", "e", "and?", "e?", "askers", "askers?"}, handleAskers)
@@ -367,7 +373,7 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	last := time.Now().Sub(events[0].Time)
+	last := time.Since(events[0].Time)
 	relative := util.RelativeDuration(last)
 
 	var txt string
@@ -464,6 +470,9 @@ func handleSendRandomAudio(bot *tg.Bot, u tg.Update) error {
 
 func handleText(bot *tg.Bot, u tg.Update) error {
 	txt := u.Message.Text
+	if strings.HasPrefix(txt, "/") {
+		return nil
+	}
 
 	name := username(u.Message.From)
 	id := u.Message.From.ID
@@ -478,13 +487,19 @@ func handleText(bot *tg.Bot, u tg.Update) error {
 		name = sanitizeUsername(u.Message.ForwardSenderName)
 	}
 
+	replyID := 0
+	if u.Message.ReplyToMessage != nil {
+		replyID = u.Message.ReplyToMessage.MessageID
+	}
+
 	err := myDB.SaveMessage(db.Message{
-		ID:       u.Message.MessageID,
-		ChatID:   u.Message.Chat.ID,
-		Text:     txt,
-		Date:     time.Unix(u.Message.Date, 0),
-		UserID:   id,
-		UserName: name,
+		ID:               u.Message.MessageID,
+		ReplyToMessageID: replyID,
+		ChatID:           u.Message.Chat.ID,
+		Text:             txt,
+		Date:             time.Unix(u.Message.Date, 0),
+		UserID:           id,
+		UserName:         name,
 	})
 
 	return err
@@ -553,19 +568,19 @@ func handleGPTCompletion(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	resp, err := myOpenai.Completion(&openai.CompletionParams{
-		Messages: []openai.Message{
+	resp, err := myOAI.Completion(&oai.CompletionParams{
+		Messages: []oai.Message{
 			{
 				Content: fmt.Sprintf(
-				"Meu nome é %s. Me responda com @%s.\n%s",
-				name,
-				name,
-				chunks[1],
-			),
-		},
+					"Meu nome é %s. Me responda com @%s.\n%s",
+					name,
+					name,
+					chunks[1],
+				),
+			},
 		},
 	})
-	if errors.Is(err, openai.ErrRateLimit) {
+	if errors.Is(err, oai.ErrRateLimit) {
 		_, err = bot.EditMessageText(tg.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
 			MessageID: msg.MessageID,
@@ -591,11 +606,11 @@ func handleGPTCompletion(bot *tg.Bot, u tg.Update) error {
 
 	var boterr tg.BotError
 	if errors.As(err, &boterr); boterr.Status == http.StatusBadRequest {
-	_, err = bot.EditMessageText(tg.EditMessageTextParams{
-		ChatID:    u.Message.Chat.ID,
-		MessageID: msg.MessageID,
-		Text:      resp.Choices[0].Message.Content,
-	})
+		_, err = bot.EditMessageText(tg.EditMessageTextParams{
+			ChatID:    u.Message.Chat.ID,
+			MessageID: msg.MessageID,
+			Text:      resp.Choices[0].Message.Content,
+		})
 	}
 
 	return err
@@ -628,22 +643,22 @@ func handleGPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		title = u.Message.Chat.FirstName
 	}
 
-	prompts := []openai.Message{
+	prompts := []oai.Message{
 		{
 			Content: fmt.Sprintf(
-			"Mensagens recentes do chat %s para voce se contextualizar, no formato '<usuario>: <texto>'\n\n%s",
-			title,
-			strings.Join(prepareTextForGPT(msgs), "\n"),
-		),
+				"Mensagens recentes do chat %s para voce se contextualizar, no formato '<usuario>: <texto>'\n\n%s",
+				title,
+				strings.Join(prepareTextForGPT(msgs), "\n"),
+			),
 		},
 		{
 			Content: fmt.Sprintf(
-			"Me chame de @%s e responda a mensagem abaixo. Se baseie no historico de mensagens acima e nos nomes de usuarios para responde. NÃO crie diálogos, apenas me responda com as informações fornecidas. As palavras 'grupo', 'chat', 'conversa', 'historico' todas se referecem ao historico do chat %s acima. Nao mencione o nome do grupo. Responda a seguinte me mencionando em segunda pessoa, usando @%s\n\n%s",
-			name,
-			title,
-			name,
-			chunks[1],
-		),
+				"Me chame de @%s e responda a mensagem abaixo. Se baseie no historico de mensagens acima e nos nomes de usuarios para responde. NÃO crie diálogos, apenas me responda com as informações fornecidas. As palavras 'grupo', 'chat', 'conversa', 'historico' todas se referecem ao historico do chat %s acima. Nao mencione o nome do grupo. Responda a seguinte me mencionando em segunda pessoa, usando @%s\n\n%s",
+				name,
+				title,
+				name,
+				chunks[1],
+			),
 		},
 	}
 
@@ -661,11 +676,11 @@ func handleGPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	resp, err := myOpenai.Completion(&openai.CompletionParams{
+	resp, err := myOAI.Completion(&oai.CompletionParams{
 		Messages:    prompts,
 		Temperature: 0.5,
 	})
-	if errors.Is(err, openai.ErrRateLimit) {
+	if errors.Is(err, oai.ErrRateLimit) {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
 			Text:             "ignorated kk rate limit",
@@ -681,6 +696,22 @@ func handleGPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		Text:      resp.Choices[0].Message.Content,
 	})
 	return err
+}
+
+func handleInlineQuery(bot *tg.Bot, u tg.Update) error {
+	return bot.AnswerInlineQuery(tg.AnswerInlineQueryParams{
+		InlineQueryID: u.InlineQuery.ID,
+		Results: []tg.InlineQueryResult{
+			{
+				Type:  "article",
+				ID:    "1",
+				Title: "oieoioei",
+				InputMessageContent: tg.InputMessageContent{
+					MessageText: "oioioio",
+				},
+			},
+		},
+	})
 }
 
 func handleCallbackQuery(bot *tg.Bot, u tg.Update) error {
@@ -831,7 +862,7 @@ func handleTextMessage(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if n%10 == 0 {
-		log.Printf("%d messages remaining", 50-n)
+		// log.Printf("%d messages remaining", 50-n)
 	}
 
 	if lastVoice.CompareAndSwap(50, 0) {
