@@ -14,8 +14,6 @@ type executor interface {
 	// TODO: remove and use only contexted functions
 	sqlx.Execer
 	sqlx.Queryer
-	QueryRow(query string, args ...any) *sql.Row
-	Select(dest any, query string, args ...any) error
 
 	io.Closer
 	sqlx.QueryerContext
@@ -146,7 +144,7 @@ type UserTopic struct {
 }
 
 func (db *DB) ExistsChatTopic(chatID int64, topic string) (bool, error) {
-	row := db.db.QueryRow(`
+	row := db.db.QueryRowContext(context.TODO(), `
 		SELECT EXISTS (
 			SELECT * FROM user_topic
 			WHERE chat_id = $1 AND topic = $2
