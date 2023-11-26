@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -99,52 +98,9 @@ func queryRow(db executor, dest ColumnMapper, query string, args ...any) error {
 	return err
 }
 
-func querySlice[E any](db executor, query string, args []any, dest func(*E) map[string]any) ([]E, error) {
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		err := rows.Close()
-		if err != nil {
-			log.Print(err)
-		}
-	}()
-
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	var res []E
-
-	for rows.Next() {
-		var e E
-		m := dest(&e)
-		var discard any
-		args := make([]any, len(cols))
-		for i := range args {
-			args[i] = &discard
-		}
-		for i, col := range cols {
-			if ptr, ok := m[col]; ok {
-				args[i] = ptr
-			}
-		}
-		err := rows.Scan(args...)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, e)
-	}
-
-	return res, rows.Err()
-}
-
 type User struct {
 	ID        int64
-	FirstName string
+	FirstName string `db:"first_name"`
 	Username  string
 }
 
@@ -183,8 +139,8 @@ func (db *DB) FindUser(id int64) (*User, error) {
 
 type UserTopic struct {
 	ID          int64
-	ChatID      int64
-	UserID      int64
+	ChatID      int64 `db:"chat_id"`
+	UserID      int64 `db:"user_id"`
 	Topic       string
 	Subscribers int
 }
@@ -236,20 +192,9 @@ func (db *DB) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 		FROM user_topic ut
 		WHERE chat_id = $1 AND user_id = $2
 	`
-	return querySlice[UserTopic](
-		db.db,
-		sql,
-		[]any{chatID, userID},
-		func(t *UserTopic) map[string]any {
-			return map[string]any{
-				"id":          &t.ID,
-				"chat_id":     &t.ChatID,
-				"user_id":     &t.UserID,
-				"topic":       &t.Topic,
-				"subscribers": &t.Subscribers,
-			}
-		},
-	)
+	var topics []UserTopic
+	err := db.db.SelectContext(context.TODO(), &topics, sql, chatID, userID)
+	return topics, err
 }
 
 func (db *DB) FindChatTopics(chatID int64) ([]UserTopic, error) {
@@ -259,20 +204,9 @@ func (db *DB) FindChatTopics(chatID int64) ([]UserTopic, error) {
 		GROUP BY topic, chat_id
 		ORDER BY subscribers DESC
 	`
-	return querySlice[UserTopic](
-		db.db,
-		sql,
-		[]any{chatID},
-		func(t *UserTopic) map[string]any {
-			return map[string]any{
-				"id":          &t.ID,
-				"chat_id":     &t.ChatID,
-				"user_id":     &t.UserID,
-				"topic":       &t.Topic,
-				"subscribers": &t.Subscribers,
-			}
-		},
-	)
+	var topics []UserTopic
+	err := db.db.SelectContext(context.TODO(), &topics, sql, chatID)
+	return topics, err
 }
 
 func (db *DB) FindUsersByTopic(chatID int64, topic string) ([]User, error) {
@@ -281,24 +215,15 @@ func (db *DB) FindUsersByTopic(chatID int64, topic string) ([]User, error) {
 		JOIN user_topic ut ON u.id = ut.user_id
 		WHERE ut.chat_id = $1 AND ut.topic = $2
 	`
-	return querySlice[User](
-		db.db,
-		sql,
-		[]any{chatID, topic},
-		func(u *User) map[string]any {
-			return map[string]any{
-				"id":         &u.ID,
-				"username":   &u.Username,
-				"first_name": &u.FirstName,
-			}
-		},
-	)
+	var users []User
+	err := db.db.SelectContext(context.TODO(), &users, sql, chatID, topic)
+	return users, err
 }
 
 type ChatEvent struct {
 	ID     int64
-	ChatID int64
-	MsgID  int
+	ChatID int64 `db:"chat_id"`
+	MsgID  int   `db:"msg_id"`
 	Time   time.Time
 	Name   string
 }
@@ -320,20 +245,9 @@ func (db *DB) FindChatEventsByName(chatID int64, name string) ([]ChatEvent, erro
 		WHERE chat_id = $1 AND name = $2
 		ORDER BY time DESC
 	`
-	return querySlice[ChatEvent](
-		db.db,
-		sql,
-		[]any{chatID, name},
-		func(e *ChatEvent) map[string]any {
-			return map[string]any{
-				"id":      &e.ID,
-				"chat_id": &e.ChatID,
-				"msg_id":  &e.MsgID,
-				"time":    &e.Time,
-				"name":    &e.Name,
-			}
-		},
-	)
+	var events []ChatEvent
+	err := db.db.SelectContext(context.TODO(), &events, sql, chatID, name)
+	return events, err
 }
 
 func (db *DB) DeleteChatEvent(e ChatEvent) error {
@@ -393,8 +307,8 @@ func (db *DB) FindLastPollByTopic(topic string) (*Poll, error) {
 }
 
 type PollVote struct {
-	PollID string
-	UserID int64
+	PollID string `db:"poll_id"`
+	UserID int64  `db:"poll_vote"`
 	Vote   int
 }
 
@@ -430,18 +344,9 @@ func (db *DB) FindPollVotes(pollID string) ([]PollVote, error) {
 		SELECT * FROM poll_vote
 		WHERE poll_id = $1
 	`
-	return querySlice[PollVote](
-		db.db,
-		sql,
-		[]any{pollID},
-		func(e *PollVote) map[string]any {
-			return map[string]any{
-				"poll_id": &e.PollID,
-				"user_id": &e.UserID,
-				"vote":    &e.Vote,
-			}
-		},
-	)
+	var votes []PollVote
+	err := db.db.SelectContext(context.TODO(), &votes, sql, pollID)
+	return votes, err
 }
 
 func (db *DB) FindPollVote(pollID string, userID int64) (*PollVote, error) {
