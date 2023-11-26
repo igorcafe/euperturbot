@@ -73,7 +73,9 @@ type User struct {
 }
 
 type Chat struct {
-	ID int64 `json:"id"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	FirstName string `json:"first_name"`
 }
 
 type Update struct {

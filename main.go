@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -27,6 +28,8 @@ var token string
 var godID int64
 var myDB *db.DB
 var myOpenai *openai.Client
+var openaiLastReq = time.Time{}
+var openaiMu = new(sync.Mutex)
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -66,7 +69,8 @@ func main() {
 	h.HandleCommand("desconta", handleUncountEvent)
 	h.HandleCommand("a", handleSaveAudio)
 	h.HandleCommand("arand", handleSendRandomAudio)
-	h.HandleCommand("resuma", handleSummarizeMessages)
+	h.HandleCommand("ask", handleGPTCompletion)
+	h.HandleCommand("cask", handleGPTChatCompletion)
 	h.HandleCallbackQuery(handleCallbackQuery)
 	h.HandleText(handleText)
 	h.HandleMessage(handleMessage)
@@ -75,8 +79,6 @@ func main() {
 }
 
 func handleSubTopic(bot *tg.Bot, u tg.Update) error {
-	log.Print(u.Message.Text)
-
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topics := []string{}
 	if len(fields) > 1 {
@@ -532,93 +534,141 @@ func handleMessage(bot *tg.Bot, u tg.Update) error {
 	return nil
 }
 
-func handleSummarizeMessages(bot *tg.Bot, u tg.Update) error {
-	if u.Message.From.ID != godID {
+func handleGPTCompletion(bot *tg.Bot, u tg.Update) error {
+	chunks := strings.SplitN(u.Message.Text, " ", 2)
+	if len(chunks) != 2 {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
-			Text:             "desculpe mas nao posso te deixar gastar os creditos do igorcafe",
+			Text:             "faltou a pergunta",
 		}
 	}
+
+	name := username(u.Message.From)
+
+	openaiMu.Lock()
+	defer openaiMu.Unlock()
+
+	wait := 20*time.Second - time.Since(openaiLastReq)
+	if wait > 0 {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             fmt.Sprintf("ignorated kk rate limit (%ds)", int(wait.Seconds())),
+		}
+	}
+
+	msg, err := bot.SendMessage(tg.SendMessageParams{
+		ChatID:           u.Message.Chat.ID,
+		ReplyToMessageID: u.Message.MessageID,
+		Text:             "Carregando...",
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err := myOpenai.Completion(&openai.CompletionParams{
+		Messages: []string{
+			fmt.Sprintf(
+				"Meu nome é %s. Me responda com @%s.\n%s",
+				name,
+				name,
+				chunks[1],
+			),
+		},
+	})
+	openaiLastReq = time.Now()
+	if err != nil {
+		return err
+	}
+
+	_, err = bot.EditMessageText(tg.EditMessageTextParams{
+		ChatID:    u.Message.Chat.ID,
+		MessageID: msg.MessageID,
+		Text:      resp.Choices[0].Message.Content,
+	})
+	return err
+}
+
+func handleGPTChatCompletion(bot *tg.Bot, u tg.Update) error {
+	// if u.Message.From.ID != godID {
+	// 	return tg.SendMessageParams{
+	// 		ReplyToMessageID: u.Message.MessageID,
+	// 		Text:             "desculpe mas nao posso te deixar gastar os creditos do igorcafe",
+	// 	}
+	// }
 
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
 	if len(chunks) != 2 {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
-			Text:             "faltou o critério para resumir (ex.: hoje, ontem, 10, -5)",
+			Text:             "faltou a pergunta",
 		}
 	}
 
-	cryteria := strings.TrimSpace(chunks[1])
-	var msgs []db.Message
-
-	count, err := strconv.Atoi(cryteria)
-
-	if err == nil {
-		if count > 100 {
-			count = 100
-		}
-		if count < 0 {
-			return tg.SendMessageParams{
-				ReplyToMessageID: u.Message.MessageID,
-				Text:             "negativo nao suportado ainda",
-			}
-		}
-		if u.Message.ReplyToMessage == nil {
-			return tg.SendMessageParams{
-				ReplyToMessageID: u.Message.MessageID,
-				Text:             "responda a mensagem",
-			}
-		}
-		msgs, err = myDB.FindMessagesAfterDate(u.Message.Chat.ID, time.Unix(u.Message.ReplyToMessage.Date, 0), count)
-
-	} else if cryteria == "hoje" {
-		msgs, err = myDB.FindMessagesByDate(u.Message.Chat.ID, time.Unix(u.Message.Date, 0))
-
-	} else {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "critério desconhecido",
-		}
-	}
-
+	msgs, err := myDB.FindMessagesBeforeDate(u.Message.Chat.ID, time.Unix(u.Message.Date, 0), 100)
 	if err != nil {
 		return err
 	}
 
-	msgTxts := []string{}
-	totalLen := 0
-	// reURL := regexp.MustCompile(`https?:\/\/\S+`)
-	reMultiSpace := regexp.MustCompile(`\s+`)
-	for _, m := range msgs {
-		txt := m.UserName + ": " + m.Text
-		// txt = reURL.ReplaceAllString(txt, "")
-		txt = reMultiSpace.ReplaceAllString(txt, " ")
-		totalLen += len(txt)
-		if totalLen > 2000 {
-			break
-		}
-		msgTxts = append(msgTxts, txt)
+	name := username(u.Message.From)
+	title := u.Message.Chat.Title
+	if title == "" {
+		title = u.Message.Chat.FirstName
 	}
 
-	log.Printf("summarizing %d messages", len(msgTxts))
+	prompts := []string{
+		fmt.Sprintf(
+			"Mensagens recentes do chat %s para voce se contextualizar, no formato '<usuario>: <texto>'\n\n%s",
+			title,
+			strings.Join(prepareTextForGPT(msgs), "\n"),
+		),
+		fmt.Sprintf(
+			"Me chame de @%s e responda a mensagem abaixo. Se baseie no historico de mensagens acima e nos nomes de usuarios para responde. NÃO crie diálogos, apenas me responda com as informações fornecidas. As palavras 'grupo', 'chat', 'conversa', 'historico' todas se referecem ao historico do chat %s acima. Nao mencione o nome do grupo. Responda a seguinte me mencionando em segunda pessoa, usando @%s\n\n%s",
+			name,
+			title,
+			name,
+			chunks[1],
+		),
+	}
 
-	prompt := "Faça somente um resumo em português do conteudo da seguinte conversa de forma breve em ate 10 bullet points, citando o nickname dos participantes. Não faça comentários, não invente histórias, não diga nada além dos bullet points.\n\n"
-	prompt += strings.Join(msgTxts, "\n")
+	// for _, p := range prompts {
+	// 	fmt.Println(p)
+	// 	fmt.Println()
+	// }
 
-	resp, err := myOpenai.Completion(&openai.CompletionParams{
-		Messages: []string{prompt},
+	openaiMu.Lock()
+	defer openaiMu.Unlock()
+
+	if time.Since(openaiLastReq) < 20*time.Second {
+	return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "ignorated kk rate limit",
+		}
+	}
+
+	msg, err := bot.SendMessage(tg.SendMessageParams{
+		ChatID:           u.Message.Chat.ID,
+		ReplyToMessageID: u.Message.MessageID,
+		Text:             "Carregando...",
 	})
 	if err != nil {
-		log.Print(err)
-		return tg.SendMessageParams{
-			Text: "falha ao obter resultado da OpenAI",
-		}
+		return err
 	}
 
-	return tg.SendMessageParams{
-		ReplyToMessageID: u.Message.MessageID,
-		Text:             resp.Choices[0].Message.Content,
+	resp, err := myOpenai.Completion(&openai.CompletionParams{
+		Messages:    prompts,
+		Temperature: 0.5,
+	})
+	openaiLastReq = time.Now()
+	if err != nil {
+		return err
 	}
+
+	_, err = bot.EditMessageText(tg.EditMessageTextParams{
+		ChatID:    u.Message.Chat.ID,
+		MessageID: msg.MessageID,
+		Text:      resp.Choices[0].Message.Content,
+	})
+	return err
 }
 
 func handleCallbackQuery(bot *tg.Bot, u tg.Update) error {
@@ -896,4 +946,31 @@ func callSubs(bot *tg.Bot, u tg.Update, topic string, quiet bool) error {
 	})
 
 	return err
+}
+
+func prepareTextForGPT(msgs []db.Message) []string {
+	msgTxts := []string{}
+	totalLen := 0
+
+	reURL := regexp.MustCompile(`https?:\/\/\S+`)
+	reMultiSpace := regexp.MustCompile(`\s+`)
+	reLaugh := regexp.MustCompile(`([kK]{7})[kK]+`)
+
+	for i := len(msgs) - 1; i >= 0; i-- {
+		txt := msgs[i].UserName + ": " + msgs[i].Text
+		txt = reLaugh.ReplaceAllString(txt, "$1")
+		txt = reURL.ReplaceAllString(txt, "")
+		txt = reMultiSpace.ReplaceAllString(txt, " ")
+		totalLen += len(txt)
+		if totalLen > 2000 {
+			break
+		}
+		msgTxts = append(msgTxts, txt)
+	}
+
+	for i, j := 0, len(msgTxts)-1; i < j; i, j = i+1, j-1 {
+		msgTxts[i], msgTxts[j] = msgTxts[j], msgTxts[i]
+	}
+
+	return msgTxts
 }

@@ -3,7 +3,6 @@ package openai
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/igoracmelo/euperturbot/util"
@@ -61,7 +60,6 @@ func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, erro
 	if err != nil {
 		return nil, err
 	}
-	log.Print(body.String())
 
 	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", body)
 	if err != nil {

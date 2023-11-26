@@ -545,3 +545,21 @@ func (db *DB) FindMessagesAfterDate(chatID int64, date time.Time, count int) ([]
 
 	return msgs, err
 }
+
+func (db *DB) FindMessagesBeforeDate(chatID int64, date time.Time, count int) ([]Message, error) {
+	msgs := []Message{}
+	err := db.db.SelectContext(context.TODO(), &msgs, `
+	 	SELECT * FROM (
+			SELECT *
+			FROM message
+			WHERE
+				chat_id = $1 AND
+				date < $2
+			ORDER BY date DESC
+			LIMIT $3
+		)
+		ORDER BY date ASC
+	`, chatID, date, count)
+
+	return msgs, err
+}
