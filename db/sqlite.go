@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -13,23 +12,17 @@ import (
 type executor interface {
 	// TODO: remove and use only contexted functions
 	sqlx.Execer
-	sqlx.Queryer
 
 	io.Closer
 	sqlx.QueryerContext
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	GetContext(ctx context.Context, dest any, query string, args ...any) error
 	SelectContext(ctx context.Context, dest any, query string, args ...any) error
 	sqlx.ExecerContext
 }
 
 type DB struct {
-	db      executor
-	stmts   map[string]*sql.Stmt
-	stmtsMu *sync.RWMutex
-}
-
-type ColumnMapper interface {
-	ColumnMap() map[string]any
+	db executor
 }
 
 func NewSqlite(dsn string) (*DB, error) {
@@ -45,55 +38,11 @@ func NewSqlite(dsn string) (*DB, error) {
 
 	return &DB{
 		db,
-		make(map[string]*sql.Stmt),
-		new(sync.RWMutex),
 	}, nil
 }
 
 func (db *DB) Close() error {
 	return db.db.Close()
-}
-
-func scanCols(rows *sql.Rows, colNames []string, entity ColumnMapper) error {
-	dest := make([]any, len(colNames))
-	var discard any
-	for i := range dest {
-		dest[i] = &discard
-	}
-
-	m := entity.ColumnMap()
-	for i, col := range colNames {
-		ptr, ok := m[col]
-		if ok {
-			dest[i] = ptr
-		}
-	}
-
-	return rows.Scan(dest...)
-}
-
-func queryRow(db executor, dest ColumnMapper, query string, args ...any) error {
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	cols, err := rows.Columns()
-	if err != nil {
-		return err
-	}
-
-	if !rows.Next() {
-		err = rows.Err()
-		if err == nil {
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
-	err = scanCols(rows, cols, dest)
-	return err
 }
 
 type User struct {
@@ -107,14 +56,6 @@ func (u *User) Name() string {
 		return u.Username
 	}
 	return u.FirstName
-}
-
-func (u *User) ColumnMap() map[string]any {
-	return map[string]any{
-		"id":         &u.ID,
-		"username":   &u.Username,
-		"first_name": &u.FirstName,
-	}
 }
 
 func (db *DB) SaveUser(u User) error {
@@ -131,7 +72,7 @@ func (db *DB) SaveUser(u User) error {
 
 func (db *DB) FindUser(id int64) (*User, error) {
 	var u User
-	err := queryRow(db.db, &u, `SELECT * FROM user WHERE id = $1`, id)
+	err := db.db.GetContext(context.TODO(), &u, `SELECT * FROM user WHERE id = $1`, id)
 	return &u, err
 }
 
@@ -258,18 +199,9 @@ func (db *DB) DeleteChatEvent(e ChatEvent) error {
 
 type Poll struct {
 	ID              string
-	ChatID          int64
+	ChatID          int64 `db:"chat_id"`
 	Topic           string
-	ResultMessageID int
-}
-
-func (p *Poll) ColumnMap() map[string]any {
-	return map[string]any{
-		"id":                &p.ID,
-		"chat_id":           &p.ChatID,
-		"topic":             &p.Topic,
-		"result_message_id": &p.ResultMessageID,
-	}
+	ResultMessageID int `db:"result_message_id"`
 }
 
 func (db *DB) SavePoll(p Poll) error {
@@ -284,19 +216,19 @@ func (db *DB) SavePoll(p Poll) error {
 
 func (db *DB) FindPoll(pollID string) (*Poll, error) {
 	var p Poll
-	err := queryRow(db.db, &p, `SELECT * FROM poll WHERE id = $1`, pollID)
+	err := db.db.GetContext(context.TODO(), &p, `SELECT * FROM poll WHERE id = $1`, pollID)
 	return &p, err
 }
 
 func (db *DB) FindPollByMessage(msgID int) (*Poll, error) {
 	var p Poll
-	err := queryRow(db.db, &p, `SELECT * FROM poll WHERE result_message_id = $1`, msgID)
+	err := db.db.GetContext(context.TODO(), &p, `SELECT * FROM poll WHERE result_message_id = $1`, msgID)
 	return &p, err
 }
 
 func (db *DB) FindLastPollByTopic(topic string) (*Poll, error) {
 	var p Poll
-	err := queryRow(db.db, &p, `
+	err := db.db.GetContext(context.TODO(), &p, `
 		SELECT * FROM poll
 		WHERE topic = $1
 		ORDER BY result_message_id DESC
@@ -308,14 +240,6 @@ type PollVote struct {
 	PollID string `db:"poll_id"`
 	UserID int64  `db:"poll_vote"`
 	Vote   int
-}
-
-func (v *PollVote) ColumnMap() map[string]any {
-	return map[string]any{
-		"poll_id": &v.PollID,
-		"user_id": &v.UserID,
-		"vote":    &v.Vote,
-	}
 }
 
 func (db *DB) SavePollVote(v PollVote) error {
@@ -349,7 +273,7 @@ func (db *DB) FindPollVotes(pollID string) ([]PollVote, error) {
 
 func (db *DB) FindPollVote(pollID string, userID int64) (*PollVote, error) {
 	var v PollVote
-	err := queryRow(db.db, &v, `
+	err := db.db.GetContext(context.TODO(), &v, `
 		SELECT * FROM poll_vote
 		WHERE poll_id = $1 AND user_id = $2
 	`, pollID, userID)
@@ -357,15 +281,8 @@ func (db *DB) FindPollVote(pollID string, userID int64) (*PollVote, error) {
 }
 
 type Voice struct {
-	FileID string
-	UserID int64
-}
-
-func (v *Voice) ColumnMap() map[string]any {
-	return map[string]any{
-		"file_id": &v.FileID,
-		"user_id": &v.UserID,
-	}
+	FileID string `db:"file_id"`
+	UserID int64  `db:"user_id"`
 }
 
 func (db *DB) SaveVoice(v Voice) error {
@@ -379,7 +296,7 @@ func (db *DB) SaveVoice(v Voice) error {
 
 func (db *DB) FindRandomVoice() (*Voice, error) {
 	var v Voice
-	err := queryRow(db.db, &v, `SELECT * FROM voice ORDER BY RANDOM() LIMIT 1`)
+	err := db.db.GetContext(context.TODO(), &v, `SELECT * FROM voice ORDER BY RANDOM() LIMIT 1`)
 	return &v, err
 }
 
