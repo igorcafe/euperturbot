@@ -632,7 +632,12 @@ func handleGPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	msgs, err := myDB.FindMessagesBeforeDate(u.Message.Chat.ID, time.Unix(u.Message.Date, 0), 100)
+	date := time.Unix(u.Message.Date, 0)
+	if u.Message.ReplyToMessage != nil {
+		date = time.Unix(u.Message.ReplyToMessage.Date, 0)
+	}
+
+	msgs, err := myDB.FindMessagesBeforeDate(u.Message.Chat.ID, date, 100)
 	if err != nil {
 		return err
 	}
