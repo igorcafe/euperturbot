@@ -11,7 +11,7 @@ type Poll struct {
 
 type PollVote struct {
 	PollID string `db:"poll_id"`
-	UserID int64  `db:"poll_vote"`
+	UserID int64  `db:"user_id"`
 	Vote   int
 }
 
