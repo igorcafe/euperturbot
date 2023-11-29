@@ -25,9 +25,10 @@ func NewClient(key string) *Client {
 }
 
 type CompletionParams struct {
-	Model       string
-	Messages    []Message
-	Temperature float64
+	WaitRateLimit bool
+	Model         string
+	Messages      []Message
+	Temperature   float64
 }
 type Message struct {
 	Role    string `json:"role"`
@@ -43,9 +44,12 @@ type CompletionResponse struct {
 var ErrRateLimit = errors.New("rate limit")
 
 func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, error) {
-	if !c.mut.TryLock() {
+	if params.WaitRateLimit {
+		c.mut.Lock()
+	} else if !c.mut.TryLock() {
 		return nil, ErrRateLimit
 	}
+
 	deadline := time.Now().Add(20 * time.Second)
 	defer func() {
 		time.Sleep(time.Until(deadline))
