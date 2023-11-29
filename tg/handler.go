@@ -94,6 +94,12 @@ func (uh *UpdateHandler) HandleCallbackQuery(handler func(bot *Bot, u Update) er
 	uh.Handle(criteria, handler)
 }
 
+func (uh *UpdateHandler) HandleInlineQuery(handler func(bot *Bot, u Update) error) {
+	uh.Handle(func(u Update) bool {
+		return u.InlineQuery != nil
+	}, handler)
+}
+
 func (uh *UpdateHandler) Start() {
 	limit := make(chan struct{}, 10)
 	for update := range uh.source {

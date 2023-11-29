@@ -83,6 +83,13 @@ type Update struct {
 	Message       *Message       `json:"message"`
 	PollAnswer    *PollAnswer    `json:"poll_answer"`
 	CallbackQuery *CallbackQuery `json:"callback_query"`
+	InlineQuery   *InlineQuery   `json:"inline_query"`
+}
+
+type PollAnswer struct {
+	PollID    string `json:"poll_id"`
+	User      User   `json:"user"`
+	OptionIDs []int  `json:"option_ids"`
 }
 
 type CallbackQuery struct {
@@ -92,10 +99,27 @@ type CallbackQuery struct {
 	Data    string   `json:"data"`
 }
 
-type PollAnswer struct {
-	PollID    string `json:"poll_id"`
-	User      User   `json:"user"`
-	OptionIDs []int  `json:"option_ids"`
+type InlineQuery struct {
+	ID    string `json:"id"`
+	From  *User  `json:"from"`
+	Query string `json:"query"`
+}
+
+type AnswerInlineQueryParams struct {
+	InlineQueryID string              `json:"inline_query_id"`
+	Results       []InlineQueryResult `json:"results"`
+}
+
+type InlineQueryResult struct {
+	Type                string              `json:"type"`
+	ID                  string              `json:"id"`
+	Title               string              `json:"title"`
+	InputMessageContent InputMessageContent `json:"input_message_content"`
+}
+
+type InputMessageContent struct {
+	MessageText string `json:"message_text"`
+	ParseMode   string `json:"parse_mode,omitempty"`
 }
 
 type GetUpdatesParams struct {

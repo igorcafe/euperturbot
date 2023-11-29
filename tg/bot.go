@@ -112,7 +112,7 @@ func (bot *Bot) GetUpdatesChannel() chan Update {
 			params := GetUpdatesParams{
 				Offset:         updateID,
 				Timeout:        5,
-				AllowedUpdates: []string{"message", "poll", "poll_answer", "callback_query"},
+				AllowedUpdates: []string{"message", "poll", "poll_answer", "callback_query", "inline_query"},
 			}
 			updates, err := bot.GetUpdates(params)
 			if err != nil {
@@ -158,6 +158,11 @@ func (bot *Bot) EditMessageText(params EditMessageTextParams) (*Message, error) 
 		return nil, err
 	}
 	return &res.Result, nil
+}
+
+func (bot *Bot) AnswerInlineQuery(params AnswerInlineQueryParams) error {
+	_, err := apiJSONRequest[bool](bot, "answerInlineQuery", params)
+	return err
 }
 
 func (bot *Bot) hideToken(s string) string {
