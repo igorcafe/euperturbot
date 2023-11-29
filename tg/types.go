@@ -69,14 +69,14 @@ type SendPollParams struct {
 
 type User struct {
 	ID        int64  `json:"id"`
-	IsBot     bool   `json:"is_bot"`
+	IsBot     bool   `json:"is_bot,omitempty"`
 	FirstName string `json:"first_name"`
-	Username  string `json:"username"`
+	Username  string `json:"username,omitempty"`
 }
 
 type Chat struct {
 	ID        int64  `json:"id"`
-	Title     string `json:"title"`
+	Title     string `json:"title,omitempty"`
 	FirstName string `json:"first_name"`
 }
 
