@@ -41,3 +41,14 @@ func RelativeDuration(d time.Duration) string {
 
 	return strings.Join(times, " e ")
 }
+
+func Debounce(d time.Duration, fn func()) func() {
+	end := time.Now().Add(d)
+	return func() {
+		for time.Now().Before(end) {
+			end = time.Now().Add(d)
+			time.Sleep(d)
+		}
+		fn()
+	}
+}

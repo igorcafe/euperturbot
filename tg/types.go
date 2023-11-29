@@ -1,16 +1,18 @@
 package tg
 
+import "encoding/json"
+
 type Message struct {
 	MessageID         int      `json:"message_id"`
 	Date              int64    `json:"date"`
-	Text              string   `json:"text"`
-	ForwardSenderName string   `json:"forward_sender_name"`
-	From              *User    `json:"from"`
-	FowardFrom        *User    `json:"forward_from"`
-	Chat              *Chat    `json:"chat"`
-	ReplyToMessage    *Message `json:"reply_to_message"`
-	Poll              *Poll    `json:"poll"`
-	Voice             *Voice   `json:"voice"`
+	Text              string   `json:"text,omitempty"`
+	ForwardSenderName string   `json:"forward_sender_name,omitempty"`
+	From              *User    `json:"from,omitempty"`
+	FowardFrom        *User    `json:"forward_from,omitempty"`
+	Chat              *Chat    `json:"chat,omitempty"`
+	ReplyToMessage    *Message `json:"reply_to_message,omitempty"`
+	Poll              *Poll    `json:"poll,omitempty"`
+	Voice             *Voice   `json:"voice,omitempty"`
 }
 
 type Voice struct {
@@ -80,10 +82,18 @@ type Chat struct {
 
 type Update struct {
 	UpdateID      int            `json:"update_id"`
-	Message       *Message       `json:"message"`
-	PollAnswer    *PollAnswer    `json:"poll_answer"`
-	CallbackQuery *CallbackQuery `json:"callback_query"`
-	InlineQuery   *InlineQuery   `json:"inline_query"`
+	Message       *Message       `json:"message,omitempty"`
+	PollAnswer    *PollAnswer    `json:"poll_answer,omitempty"`
+	CallbackQuery *CallbackQuery `json:"callback_query,omitempty"`
+	InlineQuery   *InlineQuery   `json:"inline_query,omitempty"`
+}
+
+func (u Update) String() string {
+	b, err := json.Marshal(u)
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
 }
 
 type PollAnswer struct {

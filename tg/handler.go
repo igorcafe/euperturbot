@@ -120,6 +120,7 @@ func (uh *UpdateHandler) Start() {
 				defer func() {
 					<-limit
 				}()
+				log.Print(update)
 				err := handler.handler(uh.bot, update)
 
 				if params, ok := err.(SendMessageParams); ok {
@@ -137,6 +138,7 @@ func (uh *UpdateHandler) Start() {
 					log.Print(err)
 				}
 			}()
+			break
 		}
 	}
 }
