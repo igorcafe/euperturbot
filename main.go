@@ -18,26 +18,30 @@ import (
 	"unicode"
 
 	_ "github.com/glebarez/go-sqlite"
+	"github.com/igoracmelo/euperturbot/config"
 	"github.com/igoracmelo/euperturbot/db"
-	"github.com/igoracmelo/euperturbot/env"
+	"github.com/igoracmelo/euperturbot/handler"
 	"github.com/igoracmelo/euperturbot/oai"
 	"github.com/igoracmelo/euperturbot/tg"
 	"github.com/igoracmelo/euperturbot/util"
 )
 
-var token string
-var godID int64
 var myDB *db.DB
 var myOAI *oai.Client
 var botInfo *tg.User
 
+var conf config.Config
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	token = env.Must("TOKEN")
-	godID = env.MustInt64("GOD_ID")
-
 	var err error
+
+	conf, err = config.Load()
+	if err != nil {
+		panic(err)
+	}
+
 	myDB, err = db.NewSqlite("euperturbot.db")
 	if err != nil {
 		panic(err)
@@ -47,9 +51,9 @@ func main() {
 		panic(err)
 	}
 
-	myOAI = oai.NewClient(env.Must("OPENAI_KEY"))
+	myOAI = oai.NewClient(conf.OpenAIKey)
 
-	bot := tg.NewBot(token)
+	bot := tg.NewBot(conf.BotToken)
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +66,14 @@ func main() {
 	updates := bot.GetUpdatesChannel()
 	h := tg.NewUpdateHandler(bot, updates)
 
-	h.HandleCommand("suba", handleSubTopic)
+	h2 := handler.Handler{
+		DB:      myDB,
+		OAI:     myOAI,
+		BotInfo: botInfo,
+		Config:  &conf,
+	}
+
+	h.HandleCommand("suba", h2.SubToTopic)
 	h.HandleCommand("desca", handleUnsubTopic)
 	h.HandleCommand("pollo", handleCreatePoll)
 	h.HandleCommand("bora", handleCallSubs)
@@ -81,89 +92,6 @@ func main() {
 	h.HandleMessage(handleMessage)
 	// h.HandleTextEqual([]string{"and", "e", "and?", "e?", "askers", "askers?"}, handleAskers)
 	h.Start()
-}
-
-func handleSubTopic(bot *tg.Bot, u tg.Update) error {
-	fields := strings.SplitN(u.Message.Text, " ", 2)
-	topics := []string{}
-	if len(fields) > 1 {
-		topics = strings.Split(fields[1], "\n")
-	}
-
-	if len(topics) == 0 {
-		return tg.SendMessageParams{
-			Text: "cadê o(s) tópico(s)?",
-		}
-	}
-
-	if len(topics) > 3 {
-		return tg.SendMessageParams{
-			Text: "no máximo 3 tópicos por vez",
-		}
-	}
-
-	user := db.User{
-		ID:        u.Message.From.ID,
-		FirstName: sanitizeUsername(u.Message.From.FirstName),
-		Username:  sanitizeUsername(u.Message.From.Username),
-	}
-
-	if u.Message.ReplyToMessage != nil {
-		if u.Message.ReplyToMessage.From.IsBot {
-			return tg.SendMessageParams{
-				Text: "bot nao pode man",
-			}
-		}
-		user.ID = u.Message.ReplyToMessage.From.ID
-		user.FirstName = sanitizeUsername(u.Message.ReplyToMessage.From.FirstName)
-		user.Username = sanitizeUsername(u.Message.ReplyToMessage.From.Username)
-	}
-
-	err := myDB.SaveUser(user)
-	if err != nil {
-		return err
-	}
-
-	for i, topic := range topics {
-		topics[i] = strings.TrimSpace(topic)
-		topic := topics[i]
-
-		if err := validateTopic(topic); err != nil {
-			return err
-		}
-
-		exists, err := myDB.ExistsChatTopic(u.Message.Chat.ID, topic)
-		if err != nil {
-			return err
-		}
-
-		if !exists && u.Message.From.ID != godID {
-			return tg.SendMessageParams{
-				Text: "macaquearam demais... chega!",
-			}
-		}
-
-		userTopic := db.UserTopic{
-			ChatID: u.Message.Chat.ID,
-			UserID: user.ID,
-			Topic:  topic,
-		}
-		err = myDB.SaveUserTopic(userTopic)
-		if err != nil {
-			log.Print(err)
-			return tg.SendMessageParams{
-				Text: "falha ao salvar tópico " + topic,
-			}
-		}
-	}
-
-	txt := fmt.Sprintf("inscrições adicionadas para %s:\n", user.Name())
-	for _, topic := range topics {
-		txt += fmt.Sprintf("- %s\n", topic)
-	}
-	return tg.SendMessageParams{
-		Text: txt,
-	}
 }
 
 func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
@@ -352,9 +280,9 @@ func handleCountEvent(bot *tg.Bot, u tg.Update) error {
 	if u.Message.ReplyToMessage != nil {
 		event.MsgID = u.Message.ReplyToMessage.MessageID
 		event.Time = time.Unix(u.Message.ReplyToMessage.Date, 0)
-		if u.Message.From.ID != godID {
+		if u.Message.From.ID != conf.GodID {
 			return tg.SendMessageParams{
-				Text: "sai macaco",
+				Text: "sai maluco",
 			}
 		}
 
@@ -402,9 +330,9 @@ func handleUncountEvent(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	if u.Message.From.ID != godID {
+	if u.Message.From.ID != conf.GodID {
 		return tg.SendMessageParams{
-			Text: "já disse pra sair, macaco",
+			Text: "já disse pra sair, maluco",
 		}
 	}
 
