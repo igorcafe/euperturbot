@@ -1,0 +1,1 @@
+ALTER TABLE message ADD COLUMN reply_to_message_id INTEGER NOT NULL DEFAULT 0;
