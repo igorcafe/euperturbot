@@ -75,6 +75,5 @@ func main() {
 	c.HandleCallbackQuery(h.CallbackQuery)
 	c.HandleInlineQuery(h.InlineQuery)
 	c.HandleText(h.Text)
-	c.HandleMessage(h.Message)
 	c.Start()
 }

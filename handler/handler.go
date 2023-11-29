@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/igoracmelo/euperturbot/config"
@@ -383,6 +382,7 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 	err := h.DB.SaveVoice(db.Voice{
 		FileID: u.Message.ReplyToMessage.Voice.FileID,
 		UserID: u.Message.ReplyToMessage.From.ID,
+		ChatID: u.Message.Chat.ID,
 	})
 	if err != nil {
 		return err
@@ -394,7 +394,7 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
-	voice, err := h.DB.FindRandomVoice()
+	voice, err := h.DB.FindRandomVoice(u.Message.Chat.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return tg.SendMessageParams{
 			Text: "nenhum áudio salvo para mandar",
@@ -670,9 +670,12 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
-	txt := u.Message.Text
-	if strings.HasPrefix(txt, "/") {
-		return nil
+	txt := strings.TrimSpace(u.Message.Text)
+	if strings.HasPrefix(txt, "#") {
+		if err := validateTopic(txt); err != nil {
+			return nil
+		}
+		return h.callSubs(bot, u, txt, true)
 	}
 
 	name := username(u.Message.From)
@@ -704,49 +707,6 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 	})
 
 	return err
-}
-
-var messageCount atomic.Int32
-
-func (h Handler) Message(bot *tg.Bot, u tg.Update) error {
-	t := u.Message.Text
-	t = strings.TrimSpace(t)
-	if strings.HasPrefix(t, "#") {
-		if err := validateTopic(t); err != nil {
-			return nil
-		}
-		return h.callSubs(bot, u, t, true)
-	}
-
-	date := time.Unix(u.Message.Date, 0)
-	if time.Since(date).Minutes() > 1 {
-		return nil
-	}
-
-	n := messageCount.Add(1)
-	const target = 150
-	if n > target {
-		messageCount.Store(0)
-	}
-
-	if n%10 == 0 {
-		fmt.Printf("%d messages remaining\n", target-n)
-	}
-
-	if messageCount.CompareAndSwap(target, 0) {
-		voice, err := h.DB.FindRandomVoice()
-		if err != nil {
-			return err
-		}
-		_, err = bot.SendVoice(tg.SendVoiceParams{
-			ChatID:           u.Message.Chat.ID,
-			Voice:            voice.FileID,
-			ReplyToMessageID: u.Message.MessageID,
-		})
-		return err
-	}
-
-	return nil
 }
 
 // TODO:
