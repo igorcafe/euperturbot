@@ -18,7 +18,7 @@ type UpdateHandler struct {
 	}
 }
 
-func NewUpdateHandler(bot *Bot, source <-chan Update) *UpdateHandler {
+func NewUpdateController(bot *Bot, source <-chan Update) *UpdateHandler {
 	return &UpdateHandler{
 		source: source,
 		bot:    bot,

@@ -64,72 +64,34 @@ func main() {
 	}
 
 	updates := bot.GetUpdatesChannel()
-	h := tg.NewUpdateHandler(bot, updates)
+	c := tg.NewUpdateController(bot, updates)
 
-	h2 := handler.Handler{
+	h := handler.Handler{
 		DB:      myDB,
 		OAI:     myOAI,
 		BotInfo: botInfo,
 		Config:  &conf,
 	}
 
-	h.HandleCommand("suba", h2.SubToTopic)
-	h.HandleCommand("desca", handleUnsubTopic)
-	h.HandleCommand("pollo", handleCreatePoll)
-	h.HandleCommand("bora", handleCallSubs)
-	h.HandleCommand("quem", handleListSubs)
-	h.HandleCommand("lista", handleListUserTopics)
-	h.HandleCommand("listudo", handleListChatTopics)
-	h.HandleCommand("conta", handleCountEvent)
-	h.HandleCommand("desconta", handleUncountEvent)
-	h.HandleCommand("a", handleSaveAudio)
-	h.HandleCommand("arand", handleSendRandomAudio)
-	h.HandleCommand("ask", handleGPTCompletion)
-	h.HandleCommand("cask", handleGPTChatCompletion)
-	h.HandleCallbackQuery(handleCallbackQuery)
-	h.HandleInlineQuery(handleInlineQuery)
-	h.HandleText(handleText)
-	h.HandleMessage(handleMessage)
+	c.HandleCommand("suba", h.SubToTopic)
+	c.HandleCommand("desca", h.UnsubTopic)
+	c.HandleCommand("pollo", handleCreatePoll)
+	c.HandleCommand("bora", handleCallSubs)
+	c.HandleCommand("quem", handleListSubs)
+	c.HandleCommand("lista", handleListUserTopics)
+	c.HandleCommand("listudo", handleListChatTopics)
+	c.HandleCommand("conta", handleCountEvent)
+	c.HandleCommand("desconta", handleUncountEvent)
+	c.HandleCommand("a", handleSaveAudio)
+	c.HandleCommand("arand", handleSendRandomAudio)
+	c.HandleCommand("ask", handleGPTCompletion)
+	c.HandleCommand("cask", handleGPTChatCompletion)
+	c.HandleCallbackQuery(handleCallbackQuery)
+	// h.HandleInlineQuery(handleInlineQuery)
+	c.HandleText(handleText)
+	c.HandleMessage(handleMessage)
 	// h.HandleTextEqual([]string{"and", "e", "and?", "e?", "askers", "askers?"}, handleAskers)
-	h.Start()
-}
-
-func handleUnsubTopic(bot *tg.Bot, u tg.Update) error {
-	log.Print(u.Message.Text)
-
-	fields := strings.SplitN(u.Message.Text, " ", 2)
-	topic := ""
-	if len(fields) > 1 {
-		topic = fields[1]
-	}
-
-	if err := validateTopic(topic); err != nil {
-		return err
-	}
-
-	n, err := myDB.DeleteUserTopic(db.UserTopic{
-		ChatID: u.Message.Chat.ID,
-		UserID: u.Message.From.ID,
-		Topic:  topic,
-	})
-	if err != nil {
-		return fmt.Errorf("falha ao descer :/ (%w)", err)
-	}
-
-	user, err := myDB.FindUser(u.Message.From.ID)
-	if err != nil {
-		return err
-	}
-
-	if n == 0 {
-		return tg.SendMessageParams{
-			Text: fmt.Sprintf("usuário %s não está inscrito nesse tópico", user.Name()),
-		}
-	}
-
-	return tg.SendMessageParams{
-		Text: "inscrição removida para " + user.Name(),
-	}
+	c.Start()
 }
 
 func handleCreatePoll(bot *tg.Bot, u tg.Update) error {

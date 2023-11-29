@@ -102,6 +102,44 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
+func (h Handler) UnsubTopic(bot *tg.Bot, u tg.Update) error {
+	log.Print(u.Message.Text)
+
+	fields := strings.SplitN(u.Message.Text, " ", 2)
+	topic := ""
+	if len(fields) > 1 {
+		topic = fields[1]
+	}
+
+	if err := validateTopic(topic); err != nil {
+		return err
+	}
+
+	n, err := h.DB.DeleteUserTopic(db.UserTopic{
+		ChatID: u.Message.Chat.ID,
+		UserID: u.Message.From.ID,
+		Topic:  topic,
+	})
+	if err != nil {
+		return fmt.Errorf("falha ao descer :/ (%w)", err)
+	}
+
+	user, err := h.DB.FindUser(u.Message.From.ID)
+	if err != nil {
+		return err
+	}
+
+	if n == 0 {
+		return tg.SendMessageParams{
+			Text: fmt.Sprintf("usuário %s não está inscrito nesse tópico", user.Name()),
+		}
+	}
+
+	return tg.SendMessageParams{
+		Text: "inscrição removida para " + user.Name(),
+	}
+}
+
 func sanitizeUsername(name string) string {
 	s := ""
 	for _, r := range name {
