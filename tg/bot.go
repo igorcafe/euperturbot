@@ -3,6 +3,7 @@ package tg
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -52,7 +53,7 @@ func apiJSONRequest[T any](bot *Bot, path string, data any) (*Result[T], error) 
 
 	req, err := http.NewRequest("POST", u, reqReader)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(bot.hideToken(err.Error()))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
@@ -64,7 +65,7 @@ func apiJSONRequest[T any](bot *Bot, path string, data any) (*Result[T], error) 
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(bot.hideToken(err.Error()))
 	}
 	defer resp.Body.Close()
 
@@ -80,9 +81,6 @@ func apiJSONRequest[T any](bot *Bot, path string, data any) (*Result[T], error) 
 	err = json.Unmarshal(respBody, &v)
 	if err != nil {
 		return nil, err
-	}
-	if !v.Ok {
-		panic("TODO")
 	}
 	return &v, nil
 }
