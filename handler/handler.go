@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -464,17 +463,7 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 		ChatID:    u.Message.Chat.ID,
 		MessageID: msg.MessageID,
 		Text:      resp.Choices[0].Message.Content,
-		ParseMode: "MarkdownV2",
 	})
-
-	var boterr tg.BotError
-	if errors.As(err, &boterr); boterr.Status == http.StatusBadRequest {
-		_, err = bot.EditMessageText(tg.EditMessageTextParams{
-			ChatID:    u.Message.Chat.ID,
-			MessageID: msg.MessageID,
-			Text:      resp.Choices[0].Message.Content,
-		})
-	}
 
 	return err
 }
