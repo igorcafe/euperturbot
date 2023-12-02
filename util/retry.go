@@ -1,7 +1,6 @@
 package util
 
 import (
-	"log"
 	"math"
 	"time"
 )
@@ -26,8 +25,5 @@ func (r *Retry) Do(fn func() error) error {
 		time.Sleep(t)
 	}
 
-	if err != nil {
-		log.Print(err)
-	}
 	return err
 }
