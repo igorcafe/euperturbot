@@ -51,7 +51,7 @@ func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, erro
 	}
 
 	deadline := time.Now().Add(20 * time.Second)
-	defer func() {
+	go func() {
 		time.Sleep(time.Until(deadline))
 		c.mut.Unlock()
 	}()
