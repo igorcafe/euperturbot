@@ -526,10 +526,12 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		Temperature: 0.5,
 	})
 	if errors.Is(err, oai.ErrRateLimit) {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "ignorated kk rate limit",
-		}
+		_, err = bot.EditMessageText(tg.EditMessageTextParams{
+			ChatID:    u.Message.Chat.ID,
+			MessageID: msg.MessageID,
+			Text:      "ignorated kk rate limit",
+		})
+		return err
 	}
 	if err != nil {
 		return err
