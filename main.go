@@ -12,39 +12,33 @@ import (
 	"github.com/igoracmelo/euperturbot/tg"
 )
 
-var myDB *db.DB
-var myOAI *oai.Client
-var botInfo *tg.User
-
-var conf config.Config
-
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	var err error
 
-	conf, err = config.Load()
+	conf, err := config.Load()
 	if err != nil {
 		panic(err)
 	}
 
-	myDB, err = db.NewSqlite("euperturbot.db")
+	db, err := db.NewSqlite("euperturbot.db")
 	if err != nil {
 		panic(err)
 	}
-	err = myDB.Migrate(context.Background())
+	err = db.Migrate(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	myOAI = oai.NewClient(conf.OpenAIKey)
+	oai := oai.NewClient(conf.OpenAIKey)
 
 	bot := tg.NewBot(conf.BotToken)
 	if err != nil {
 		panic(err)
 	}
 
-	botInfo, err = bot.GetMe()
+	botInfo, err := bot.GetMe()
 	if err != nil {
 		panic(err)
 	}
@@ -53,8 +47,8 @@ func main() {
 	c := tg.NewUpdateController(bot, updates)
 
 	h := handler.Handler{
-		DB:      myDB,
-		OAI:     myOAI,
+		DB:      db,
+		OAI:     oai,
 		BotInfo: botInfo,
 		Config:  &conf,
 	}
