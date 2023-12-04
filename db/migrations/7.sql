@@ -1,0 +1,7 @@
+CREATE TABLE chat (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL DEFAULT "",
+    allow_save_msgs INTEGER NOT NULL DEFAULT 0,
+    allow_gpt INTEGER NOT NULL DEFAULT 0,
+    allow_audio INTEGER NOT NULL DEFAULT 0
+)
