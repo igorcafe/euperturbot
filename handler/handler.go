@@ -450,7 +450,7 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
 		})
 		go func() {
-			deadline := time.Now().Add(time.Duration(rateErr))
+			deadline := time.Now().Add(time.Duration(rateErr) * time.Second)
 			for time.Now().Before(deadline) {
 				time.Sleep(time.Second)
 				secs := int(time.Until(deadline).Seconds())
@@ -546,7 +546,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
 		})
 		go func() {
-			deadline := time.Now().Add(time.Duration(rateErr))
+			deadline := time.Now().Add(time.Duration(rateErr) * time.Second)
 			for time.Now().Before(deadline) {
 				time.Sleep(time.Second)
 				secs := int(time.Until(deadline).Seconds())
