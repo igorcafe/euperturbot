@@ -442,11 +442,12 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 			},
 		},
 	})
-	if errors.Is(err, oai.ErrRateLimit) {
+	var rateErr oai.ErrRateLimit
+	if errors.As(err, &rateErr) {
 		_, err = bot.EditMessageText(tg.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
 			MessageID: msg.MessageID,
-			Text:      "ignorated kk rate limit",
+			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
 		})
 		return err
 	}
@@ -525,11 +526,12 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		Messages:    prompts,
 		Temperature: 0.5,
 	})
-	if errors.Is(err, oai.ErrRateLimit) {
+	var rateErr oai.ErrRateLimit
+	if errors.As(err, &rateErr) {
 		_, err = bot.EditMessageText(tg.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
 			MessageID: msg.MessageID,
-			Text:      "ignorated kk rate limit",
+			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
 		})
 		return err
 	}

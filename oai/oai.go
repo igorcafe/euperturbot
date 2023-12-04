@@ -3,24 +3,28 @@ package oai
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/igoracmelo/euperturbot/util"
 )
 
 type Client struct {
-	key  string
-	http http.Client
-	mut  *sync.Mutex
+	key               string
+	http              http.Client
+	mut               *sync.Mutex
+	rateLimitDeadline *atomic.Value
 }
 
 func NewClient(key string) *Client {
+	deadline := &atomic.Value{}
+	deadline.Store(time.Time{})
 	return &Client{
-		key: key,
-		mut: new(sync.Mutex),
+		key:               key,
+		mut:               new(sync.Mutex),
+		rateLimitDeadline: deadline,
 	}
 }
 
@@ -41,16 +45,22 @@ type CompletionResponse struct {
 	}
 }
 
-var ErrRateLimit = errors.New("rate limit")
+type ErrRateLimit int
+
+func (err ErrRateLimit) Error() string {
+	return "rate limit"
+}
 
 func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, error) {
 	if params.WaitRateLimit {
 		c.mut.Lock()
 	} else if !c.mut.TryLock() {
-		return nil, ErrRateLimit
+		secs := int(time.Until(c.rateLimitDeadline.Load().(time.Time)).Seconds())
+		return nil, ErrRateLimit(secs)
 	}
 
 	deadline := time.Now().Add(20 * time.Second)
+	c.rateLimitDeadline.Store(deadline)
 	go func() {
 		time.Sleep(time.Until(deadline))
 		c.mut.Unlock()
