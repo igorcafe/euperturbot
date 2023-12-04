@@ -16,8 +16,8 @@ type PollVote struct {
 }
 
 const (
-	VoteUp   = 1
-	VoteDown = 0
+	VoteUp   = 0
+	VoteDown = 1
 )
 
 func (db *DB) SavePoll(p Poll) error {
