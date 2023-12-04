@@ -85,6 +85,7 @@ func (db *DB) FindPollVote(pollID string, userID int64) (*PollVote, error) {
 	var v PollVote
 	err := db.db.GetContext(context.TODO(), &v, `
 		SELECT * FROM poll_vote
+		JOIN user_topic ut ON ut.user_id = $2
 		WHERE poll_id = $1 AND user_id = $2
 	`, pollID, userID)
 	return &v, err
