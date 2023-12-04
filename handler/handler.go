@@ -449,6 +449,18 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 			MessageID: msg.MessageID,
 			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
 		})
+		go func() {
+			deadline := time.Now().Add(time.Duration(rateErr))
+			for time.Now().Before(deadline) {
+				time.Sleep(time.Second)
+				secs := int(time.Until(deadline).Seconds())
+				_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+					ChatID:    u.Message.Chat.ID,
+					MessageID: msg.MessageID,
+					Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", secs),
+				})
+			}
+		}()
 		return err
 	}
 	if err != nil {
@@ -533,6 +545,18 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 			MessageID: msg.MessageID,
 			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
 		})
+		go func() {
+			deadline := time.Now().Add(time.Duration(rateErr))
+			for time.Now().Before(deadline) {
+				time.Sleep(time.Second)
+				secs := int(time.Until(deadline).Seconds())
+				_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+					ChatID:    u.Message.Chat.ID,
+					MessageID: msg.MessageID,
+					Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", secs),
+				})
+			}
+		}()
 		return err
 	}
 	if err != nil {
