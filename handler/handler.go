@@ -605,6 +605,17 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
+	if voteNum == db.VoteUp {
+		err = h.DB.SaveUserTopic(db.UserTopic{
+			ChatID: poll.ChatID,
+			UserID: u.CallbackQuery.From.ID,
+			Topic:  poll.Topic,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	users, err := h.DB.FindUsersByTopic(poll.ChatID, poll.Topic)
 	if err != nil {
 		return err
@@ -618,14 +629,7 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 	if !found && voteNum == db.VoteUp {
-		err = h.DB.SaveUserTopic(db.UserTopic{
-			ChatID: poll.ChatID,
-			UserID: u.CallbackQuery.From.ID,
-			Topic:  poll.Topic,
-		})
-		if err != nil {
-			return err
-		}
+		return nil
 	}
 
 	positiveCount := 0
