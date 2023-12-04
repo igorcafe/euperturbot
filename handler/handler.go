@@ -452,7 +452,7 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 		go func() {
 			deadline := time.Now().Add(time.Duration(rateErr) * time.Second)
 			for time.Now().Before(deadline) {
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(time.Second)
 				secs := int(time.Until(deadline).Seconds())
 				_, _ = bot.EditMessageText(tg.EditMessageTextParams{
 					ChatID:    u.Message.Chat.ID,
@@ -548,7 +548,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		go func() {
 			deadline := time.Now().Add(time.Duration(rateErr) * time.Second)
 			for time.Now().Before(deadline) {
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(time.Second)
 				secs := int(time.Until(deadline).Seconds())
 				_, _ = bot.EditMessageText(tg.EditMessageTextParams{
 					ChatID:    u.Message.Chat.ID,
