@@ -15,6 +15,11 @@ type PollVote struct {
 	Vote   int
 }
 
+const (
+	VoteUp   = 1
+	VoteDown = 0
+)
+
 func (db *DB) SavePoll(p Poll) error {
 	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO poll

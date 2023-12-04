@@ -617,8 +617,15 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 			break
 		}
 	}
-	if !found {
-		return nil
+	if !found && voteNum == db.VoteUp {
+		err = h.DB.SaveUserTopic(db.UserTopic{
+			ChatID: poll.ChatID,
+			UserID: u.CallbackQuery.From.ID,
+			Topic:  poll.Topic,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	positiveCount := 0
@@ -640,13 +647,10 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 			return err
 		}
 
-		const yes = 0
-		const no = 1
-
-		if vote.Vote == yes {
+		if vote.Vote == db.VoteUp {
 			positiveCount++
 			positives += mention
-		} else if vote.Vote == no {
+		} else if vote.Vote == db.VoteDown {
 			negativeCount++
 			negatives += mention
 		}
