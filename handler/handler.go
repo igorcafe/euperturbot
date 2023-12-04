@@ -628,7 +628,7 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 			break
 		}
 	}
-	if !found && voteNum == db.VoteUp {
+	if !found {
 		return nil
 	}
 
