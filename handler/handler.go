@@ -44,6 +44,13 @@ func (h Handler) StartedMiddleware() tg.Middleware {
 }
 
 func (h Handler) Start(bot *tg.Bot, u tg.Update) error {
+	if admin, _ := h.isAdmin(bot, u); !admin {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "você não tem permissão isso",
+		}
+	}
+
 	err := h.DB.SaveChat(context.TODO(), db.Chat{
 		ID:    u.Message.From.ID,
 		Title: u.Message.Chat.Name(),
@@ -527,7 +534,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 	if !enables {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
-			Text:             "comando desativado. ative com /enablecask",
+			Text:             "comando desativado. ative com /enablecask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do bot",
 		}
 	}
 
@@ -556,6 +563,13 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 	}
 
 	prepMsgs := prepareMessagesForGPT(msgs)
+	if len(prepMsgs) == 0 {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "ainda não há mensagens salvas para usar o /cask",
+		}
+	}
+
 	prompts := []oai.Message{
 		{
 			Content: fmt.Sprintf(
@@ -619,6 +633,30 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		Text:      resp.Choices[0].Message.Content,
 	})
 	return err
+}
+
+func (h Handler) EnableCAsk(bot *tg.Bot, u tg.Update) error {
+	admin, err := h.isAdmin(bot, u)
+	if err != nil {
+		return err
+	}
+
+	if !admin {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "você não tem permissão isso",
+		}
+	}
+
+	err = h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, "cask")
+	if err != nil {
+		return err
+	}
+
+	return tg.SendMessageParams{
+		ReplyToMessageID: u.Message.MessageID,
+		Text:             "ativado",
+	}
 }
 
 func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {

@@ -74,11 +74,15 @@ type User struct {
 	Username  string `json:"username,omitempty"`
 }
 
+type ChatMember struct {
+	Status string `json:"status,omitempty"`
+}
+
 type Chat struct {
 	ID        int64  `json:"id"`
-	Type      string `json:"type"`
+	Type      string `json:"type,omitempty"`
 	Title     string `json:"title,omitempty"`
-	FirstName string `json:"first_name"`
+	FirstName string `json:"first_name,omitempty"`
 }
 
 func (c Chat) Name() string {
@@ -138,6 +142,11 @@ type InlineQueryResult struct {
 type InputMessageContent struct {
 	MessageText string `json:"message_text"`
 	ParseMode   string `json:"parse_mode,omitempty"`
+}
+
+type GetChatMemberParams struct {
+	ChatID int64 `json:"chat_id"`
+	UserID int64 `json:"user_id"`
 }
 
 type GetUpdatesParams struct {

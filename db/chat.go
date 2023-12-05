@@ -70,3 +70,24 @@ func (db DB) ChatEnables(ctx context.Context, chatID int64, action string) (bool
 	err := db.db.GetContext(ctx, &iAllow, `SELECT enable_`+action+` FROM chat WHERE id = $1`, chatID)
 	return iAllow == 1, err
 }
+
+func (db DB) ChatEnable(ctx context.Context, chatID int64, action string) error {
+	res, err := db.db.ExecContext(ctx, `
+		UPDATE chat
+		SET enable_`+action+` = 1
+		WHERE id = $1
+	`, chatID)
+	if err != nil {
+		return err
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if n == 0 {
+		return ErrNotFound
+	}
+	return err
+}

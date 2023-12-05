@@ -94,6 +94,14 @@ func (bot *Bot) GetMe() (*User, error) {
 	return &res.Result, err
 }
 
+func (bot *Bot) GetChatMember(params GetChatMemberParams) (*ChatMember, error) {
+	res, err := apiJSONRequest[ChatMember](bot, "getMe", params)
+	if err != nil {
+		return nil, err
+	}
+	return &res.Result, err
+}
+
 func (bot *Bot) GetUpdates(params GetUpdatesParams) ([]Update, error) {
 	res, err := apiJSONRequest[[]Update](bot, "getUpdates", params)
 	if err != nil {

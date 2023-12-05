@@ -68,6 +68,7 @@ func main() {
 	c.HandleCommand("arand", h.SendRandomAudio)
 	c.HandleCommand("ask", h.GPTCompletion)
 	c.HandleCommand("cask", h.GPTChatCompletion)
+	c.HandleCommand("enablecask", h.EnableCAsk)
 	c.HandleCallbackQuery(h.CallbackQuery)
 	c.HandleInlineQuery(h.InlineQuery)
 	c.HandleText(h.Text)
