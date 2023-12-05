@@ -9,52 +9,42 @@ import (
 )
 
 type Chat struct {
-	ID                int64
-	Title             string
-	AllowSaveMessages bool
-	AllowGPT          bool
-	AllowAudio        bool
+	ID         int64
+	Title      string
+	EnableCAsk bool
 }
 
 var ErrChatActionNotAllowed = errors.New("chat action not allowed")
 
+var ErrNotFound = sql.ErrNoRows
+
 type rawChat struct {
-	ID                int64  `db:"id"`
-	Title             string `db:"title"`
-	AllowSaveMessages int    `db:"allow_save_msgs"`
-	AllowGPT          int    `db:"allow_gpt"`
-	AllowAudio        int    `db:"allow_audio"`
+	ID         int64  `db:"id"`
+	Title      string `db:"title"`
+	EnableCAsk int    `db:"enable_cask"`
 }
 
 func (db DB) SaveChat(ctx context.Context, chat Chat) error {
 	rawChat := rawChat{
-		ID:                chat.ID,
-		Title:             chat.Title,
-		AllowSaveMessages: util.BoolToInt(chat.AllowSaveMessages),
-		AllowGPT:          util.BoolToInt(chat.AllowGPT),
-		AllowAudio:        util.BoolToInt(chat.AllowAudio),
+		ID:         chat.ID,
+		Title:      chat.Title,
+		EnableCAsk: util.BoolToInt(chat.EnableCAsk),
 	}
 
 	_, err := db.db.NamedExecContext(ctx, `
 		INSERT INTO chat (
 			id,
 			title,
-			allow_save_msgs,
-			allow_gpt,
-			allow_audio
+			enable_cask
 		) VALUES (
 			:id,
 			:title,
-			:allow_save_msgs,
-			:allow_gpt,
-			:allow_audio
+			:enable_cask
 		)
 		ON CONFLICT DO UPDATE
 		SET
-			title = :title,
-			allow_save_msgs = :allow_save_msgs,
-			allow_gpt = :allow_gpt,
-			allow_audio = :allow_audio
+			title           = :title,
+			enable_cask     = :enable_cask
 	`, rawChat)
 
 	return err
@@ -68,26 +58,15 @@ func (db DB) FindChat(ctx context.Context, chatID int64) (*Chat, error) {
 		WHERE id = $1
 	`, chatID)
 
-	if errors.Is(err, sql.ErrNoRows) {
-		return &Chat{
-			ID: chatID,
-		}, nil
-	}
-
 	return &Chat{
-		ID:                c.ID,
-		Title:             c.Title,
-		AllowSaveMessages: c.AllowSaveMessages == 1,
-		AllowGPT:          c.AllowGPT == 1,
-		AllowAudio:        c.AllowAudio == 1,
+		ID:         c.ID,
+		Title:      c.Title,
+		EnableCAsk: c.EnableCAsk == 1,
 	}, err
 }
 
-func (db DB) chatAllows(ctx context.Context, chatID int64, action string) (bool, error) {
+func (db DB) ChatEnables(ctx context.Context, chatID int64, action string) (bool, error) {
 	var iAllow int
-	err := db.db.GetContext(ctx, &iAllow, `SELECT allow_`+action+` FROM chat WHERE id = $1`, chatID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
+	err := db.db.GetContext(ctx, &iAllow, `SELECT enable_`+action+` FROM chat WHERE id = $1`, chatID)
 	return iAllow == 1, err
 }

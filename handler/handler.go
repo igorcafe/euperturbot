@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -22,6 +23,42 @@ type Handler struct {
 	OAI     *oai.Client
 	BotInfo *tg.User
 	Config  *config.Config
+}
+
+func (h Handler) StartedMiddleware() tg.Middleware {
+	return func(next tg.HandlerFunc) tg.HandlerFunc {
+		return func(bot *tg.Bot, u tg.Update) error {
+			if u.Message.Text == "/start" {
+				return next(bot, u)
+			}
+
+			_, err := h.DB.FindChat(context.TODO(), u.Message.Chat.ID)
+			if errors.Is(err, db.ErrNotFound) {
+				// chat not /start'ed. ignore
+				return nil
+			}
+
+			return next(bot, u)
+		}
+	}
+}
+
+func (h Handler) Start(bot *tg.Bot, u tg.Update) error {
+	err := h.DB.SaveChat(context.TODO(), db.Chat{
+		ID:    u.Message.From.ID,
+		Title: u.Message.Chat.Name(),
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = bot.SendMessage(tg.SendMessageParams{
+		ChatID:                   u.Message.Chat.ID,
+		ReplyToMessageID:         u.Message.MessageID,
+		Text:                     "vamo que vamo",
+		AllowSendingWithoutReply: true,
+	})
+	return err
 }
 
 func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
@@ -482,6 +519,18 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
+	enables, err := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
+	if err != nil {
+		return err
+	}
+
+	if !enables {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "comando desativado. ative com /enablecask",
+		}
+	}
+
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
 	if len(chunks) != 2 {
 		return tg.SendMessageParams{
@@ -495,7 +544,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		date = time.Unix(u.Message.ReplyToMessage.Date, 0)
 	}
 
-	msgs, err := h.DB.FindMessagesBeforeDate(u.Message.Chat.ID, date, 100)
+	msgs, err := h.DB.FindMessagesBeforeDate(context.TODO(), u.Message.Chat.ID, date, 100)
 	if err != nil {
 		return err
 	}
@@ -696,12 +745,23 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
+	// call subscribers
 	txt := strings.TrimSpace(u.Message.Text)
 	if strings.HasPrefix(txt, "#") {
 		if err := validateTopic(txt); err != nil {
 			return nil
 		}
 		return h.callSubs(bot, u, txt, true)
+	}
+
+	// save message
+	enables, err := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
+	if err != nil {
+		return err
+	}
+
+	if !enables {
+		return nil
 	}
 
 	name := username(u.Message.From)
@@ -722,7 +782,7 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 		replyID = u.Message.ReplyToMessage.MessageID
 	}
 
-	err := h.DB.SaveMessage(db.Message{
+	err = h.DB.SaveMessage(context.TODO(), db.Message{
 		ID:               u.Message.MessageID,
 		ReplyToMessageID: replyID,
 		ChatID:           u.Message.Chat.ID,

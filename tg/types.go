@@ -33,6 +33,10 @@ type SendMessageParams struct {
 	ReplyMarkup              *InlineKeyboardMarkup `json:"reply_markup,omitempty"`
 }
 
+func (p SendMessageParams) Error() string {
+	return p.Text
+}
+
 type InlineKeyboardMarkup struct {
 	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
 }
@@ -40,10 +44,6 @@ type InlineKeyboardMarkup struct {
 type InlineKeyboardButton struct {
 	Text         string `json:"text"`
 	CallbackData string `json:"callback_data"`
-}
-
-func (p SendMessageParams) Error() string {
-	return p.Text
 }
 
 type EditMessageTextParams struct {
@@ -76,8 +76,16 @@ type User struct {
 
 type Chat struct {
 	ID        int64  `json:"id"`
+	Type      string `json:"type"`
 	Title     string `json:"title,omitempty"`
 	FirstName string `json:"first_name"`
+}
+
+func (c Chat) Name() string {
+	if c.Type == "private" {
+		return c.FirstName
+	}
+	return c.Title
 }
 
 type Update struct {

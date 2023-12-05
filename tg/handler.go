@@ -7,49 +7,75 @@ import (
 )
 
 type HandlerFunc func(bot *Bot, u Update) error
+type Middleware = func(next HandlerFunc) HandlerFunc
 type CriteriaFunc func(u Update) bool
 
-type UpdateHandler struct {
+var AnyMessage CriteriaFunc = func(u Update) bool {
+	return u.Message != nil
+}
+
+type UpdateController struct {
 	source   <-chan Update
 	bot      *Bot
 	handlers []struct {
 		criteria CriteriaFunc
-		handler  HandlerFunc
+		fn       HandlerFunc
 	}
+	middlewares []Middleware
 }
 
-func NewUpdateController(bot *Bot, source <-chan Update) *UpdateHandler {
-	return &UpdateHandler{
+func NewUpdateController(bot *Bot, source <-chan Update) *UpdateController {
+	return &UpdateController{
 		source: source,
 		bot:    bot,
 	}
 }
 
-func (uh *UpdateHandler) Handle(criteria CriteriaFunc, handler func(bot *Bot, u Update) error) {
+func (uc *UpdateController) Middleware(mw Middleware, criterias ...CriteriaFunc) {
+	criteria := func(u Update) bool {
+		for _, c := range criterias {
+			if !c(u) {
+				return false
+			}
+		}
+		return true
+	}
+
+	_mw := func(hf HandlerFunc) HandlerFunc {
+		return func(bot *Bot, u Update) error {
+			if criteria(u) {
+				return mw(hf)(bot, u)
+			} else {
+				return hf(bot, u)
+			}
+		}
+	}
+
+	uc.middlewares = append(uc.middlewares, _mw)
+}
+
+func (uh *UpdateController) Handle(criteria CriteriaFunc, fn func(bot *Bot, u Update) error) {
 	uh.handlers = append(uh.handlers, struct {
 		criteria CriteriaFunc
-		handler  HandlerFunc
+		fn       HandlerFunc
 	}{
 		criteria,
-		handler,
+		fn,
 	})
 }
 
-func (uh *UpdateHandler) HandleMessage(handler func(bot *Bot, u Update) error) {
-	criteria := func(u Update) bool {
-		return u.Message != nil
-	}
-	uh.Handle(criteria, handler)
+func (uh *UpdateController) HandleMessage(handler func(bot *Bot, u Update) error) {
+	uh.Handle(AnyMessage, handler)
 }
 
-func (uh *UpdateHandler) HandleText(handler func(bot *Bot, u Update) error) {
+func (uh *UpdateController) HandleText(handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
 		return u.Message != nil && strings.TrimSpace(u.Message.Text) != ""
 	}
 	uh.Handle(criteria, handler)
 }
 
-func (uh *UpdateHandler) HandleTextEqual(texts []string, handler func(bot *Bot, u Update) error) {
+func (uh *UpdateController) HandleTextEqual(texts []string, handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
 		if u.Message == nil {
 			return false
@@ -65,7 +91,7 @@ func (uh *UpdateHandler) HandleTextEqual(texts []string, handler func(bot *Bot, 
 	uh.Handle(criteria, handler)
 }
 
-func (uh *UpdateHandler) HandleCommand(cmd string, handler func(bot *Bot, u Update) error) {
+func (uh *UpdateController) HandleCommand(cmd string, handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
 		if u.Message == nil {
 			return false
@@ -80,27 +106,27 @@ func (uh *UpdateHandler) HandleCommand(cmd string, handler func(bot *Bot, u Upda
 	uh.Handle(criteria, handler)
 }
 
-func (uh *UpdateHandler) HandlePollAnswer(handler func(bot *Bot, u Update) error) {
+func (uh *UpdateController) HandlePollAnswer(handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
 		return u.PollAnswer != nil
 	}
 	uh.Handle(criteria, handler)
 }
 
-func (uh *UpdateHandler) HandleCallbackQuery(handler func(bot *Bot, u Update) error) {
+func (uh *UpdateController) HandleCallbackQuery(handler func(bot *Bot, u Update) error) {
 	criteria := func(u Update) bool {
 		return u.CallbackQuery != nil
 	}
 	uh.Handle(criteria, handler)
 }
 
-func (uh *UpdateHandler) HandleInlineQuery(handler func(bot *Bot, u Update) error) {
+func (uh *UpdateController) HandleInlineQuery(handler func(bot *Bot, u Update) error) {
 	uh.Handle(func(u Update) bool {
 		return u.InlineQuery != nil
 	}, handler)
 }
 
-func (uh *UpdateHandler) Start() {
+func (uh *UpdateController) Start() {
 	limit := make(chan struct{}, 10)
 	for update := range uh.source {
 		for _, handler := range uh.handlers {
@@ -109,6 +135,12 @@ func (uh *UpdateHandler) Start() {
 			if !handler.criteria(update) {
 				continue
 			}
+
+			fn := handler.fn
+			for _, mw := range uh.middlewares {
+				fn = mw(handler.fn)
+			}
+
 			limit <- struct{}{}
 			go func() {
 				defer func() {
@@ -121,7 +153,7 @@ func (uh *UpdateHandler) Start() {
 					<-limit
 				}()
 				log.Print(update)
-				err := handler.handler(uh.bot, update)
+				err := fn(uh.bot, update)
 
 				if params, ok := err.(SendMessageParams); ok {
 					params.ChatID = update.Message.Chat.ID

@@ -53,6 +53,8 @@ func main() {
 		Config:  &conf,
 	}
 
+	c.Middleware(h.StartedMiddleware(), tg.AnyMessage)
+	c.HandleCommand("start", h.Start)
 	c.HandleCommand("suba", h.SubToTopic)
 	c.HandleCommand("desca", h.UnsubTopic)
 	c.HandleCommand("pollo", h.CreatePoll)
