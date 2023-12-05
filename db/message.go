@@ -82,7 +82,7 @@ func (db *DB) FindMessagesBeforeDate(chatID int64, date time.Time, count int) ([
 			FROM message
 			WHERE
 				chat_id = $1 AND
-				date < $2
+				date <= $2
 			ORDER BY date DESC
 			LIMIT $3
 		)
