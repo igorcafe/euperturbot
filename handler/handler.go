@@ -506,12 +506,13 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		title = u.Message.Chat.FirstName
 	}
 
+	prepMsgs := prepareMessagesForGPT(msgs)
 	prompts := []oai.Message{
 		{
 			Content: fmt.Sprintf(
 				"Mensagens recentes do chat %s para voce se contextualizar, no formato '<usuario>: <texto>'\n\n%s",
 				title,
-				strings.Join(prepareTextForGPT(msgs), "\n"),
+				strings.Join(prepMsgs, "\n"),
 			),
 		},
 		{
@@ -528,7 +529,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 	msg, err := bot.SendMessage(tg.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
-		Text:             "Carregando...",
+		Text:             fmt.Sprintf("Carregando... (usando últimas %d mensagens de contexto)", len(prepMsgs)),
 	})
 	if err != nil {
 		return err

@@ -77,7 +77,7 @@ func (h Handler) callSubs(bot *tg.Bot, u tg.Update, topic string, quiet bool) er
 	return err
 }
 
-func prepareTextForGPT(msgs []db.Message) []string {
+func prepareMessagesForGPT(msgs []db.Message) []string {
 	msgTxts := []string{}
 	totalLen := 0
 
