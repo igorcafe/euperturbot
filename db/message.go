@@ -15,7 +15,7 @@ type Message struct {
 	ReplyToMessageID int    `db:"reply_to_message_id"`
 }
 
-func (db *DB) SaveMessage(msg Message) error {
+func (db *DB) SaveMessage(ctx context.Context, msg Message) error {
 	if len(msg.Text) > 500 {
 		msg.Text = msg.Text[:497] + "..."
 	}
@@ -44,37 +44,7 @@ func (db *DB) SaveMessage(msg Message) error {
 	return err
 }
 
-func (db *DB) FindMessagesByDate(chatID int64, date time.Time) ([]Message, error) {
-	msgs := []Message{}
-	err := db.db.SelectContext(context.TODO(), &msgs, `
-		SELECT *
-		FROM message
-		WHERE
-			chat_id = $1 AND
-			date >= DATE($2) AND
-			date < DATE($2, '+1 day')
-		ORDER BY date
-	`, chatID, date)
-
-	return msgs, err
-}
-
-func (db *DB) FindMessagesAfterDate(chatID int64, date time.Time, count int) ([]Message, error) {
-	msgs := []Message{}
-	err := db.db.SelectContext(context.TODO(), &msgs, `
-		SELECT *
-		FROM message
-		WHERE
-			chat_id = $1 AND
-			date >= $2
-		ORDER BY date
-		LIMIT $3
-	`, chatID, date, count)
-
-	return msgs, err
-}
-
-func (db *DB) FindMessagesBeforeDate(chatID int64, date time.Time, count int) ([]Message, error) {
+func (db *DB) FindMessagesBeforeDate(ctx context.Context, chatID int64, date time.Time, count int) ([]Message, error) {
 	msgs := []Message{}
 	err := db.db.SelectContext(context.TODO(), &msgs, `
 	 	SELECT * FROM (

@@ -52,7 +52,7 @@ func (h Handler) Start(bot *tg.Bot, u tg.Update) error {
 	}
 
 	err := h.DB.SaveChat(context.TODO(), db.Chat{
-		ID:    u.Message.From.ID,
+		ID:    u.Message.Chat.ID,
 		Title: u.Message.Chat.Name(),
 	})
 	if err != nil {
@@ -526,11 +526,7 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
-	enables, err := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
-	if err != nil {
-		return err
-	}
-
+	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
@@ -793,11 +789,7 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 	}
 
 	// save message
-	enables, err := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
-	if err != nil {
-		return err
-	}
-
+	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
 		return nil
 	}
@@ -820,7 +812,7 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 		replyID = u.Message.ReplyToMessage.MessageID
 	}
 
-	err = h.DB.SaveMessage(context.TODO(), db.Message{
+	err := h.DB.SaveMessage(context.TODO(), db.Message{
 		ID:               u.Message.MessageID,
 		ReplyToMessageID: replyID,
 		ChatID:           u.Message.Chat.ID,
