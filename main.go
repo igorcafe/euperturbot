@@ -73,6 +73,8 @@ func main() {
 	c.HandleInlineQuery(h.InlineQuery)
 
 	// switches
+	c.HandleCommand("enablecreatetopics", h.RequireAdmin(h.Enable("create_topics")))
+	c.HandleCommand("disablecreatetopics", h.RequireAdmin(h.Disable("create_topics")))
 	c.HandleCommand("enableaudio", h.RequireAdmin(h.Enable("audio")))
 	c.HandleCommand("disableaudio", h.RequireAdmin(h.Disable("audio")))
 	c.HandleCommand("enablecask", h.RequireAdmin(h.Enable("cask")))

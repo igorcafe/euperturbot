@@ -100,9 +100,12 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 			return err
 		}
 
-		if !exists && u.Message.From.ID != h.Config.GodID {
+		enablesCreatingTopic, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "create_topics")
+		isAdmin, _ := h.isAdmin(bot, u)
+		if !exists && !isAdmin && !enablesCreatingTopic {
 			return tg.SendMessageParams{
-				Text: "macaquearam demais... chega!",
+				ReplyToMessageID: u.Message.MessageID,
+				Text:             "você só tem permissão para se inscrever em tópicos existentes",
 			}
 		}
 

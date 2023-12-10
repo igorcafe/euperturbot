@@ -41,29 +41,17 @@ func (h Handler) RequireGod(next tg.HandlerFunc) tg.HandlerFunc {
 
 func (h Handler) RequireAdmin(next tg.HandlerFunc) tg.HandlerFunc {
 	return func(bot *tg.Bot, u tg.Update) error {
-		if u.Message.Chat.Type == "private" {
-			return next(bot, u)
-		}
-
-		if u.Message.From.ID == h.Config.GodID {
-			return next(bot, u)
-		}
-
-		member, err := bot.GetChatMember(tg.GetChatMemberParams{
-			ChatID: u.Message.Chat.ID,
-			UserID: u.Message.From.ID,
-		})
+		isAdmin, err := h.isAdmin(bot, u)
 		if err != nil {
 			return err
 		}
-
-		if member.Status == "creator" || member.Status == "administrator" {
-			return next(bot, u)
+		if !isAdmin {
+			return tg.SendMessageParams{
+				ReplyToMessageID: u.Message.MessageID,
+				Text:             "você não tem permissão para isso",
+			}
 		}
 
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "você não tem permissão para isso",
-		}
+		return next(bot, u)
 	}
 }
