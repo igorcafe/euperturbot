@@ -91,3 +91,24 @@ func (db DB) ChatEnable(ctx context.Context, chatID int64, action string) error 
 	}
 	return err
 }
+
+func (db DB) ChatDisable(ctx context.Context, chatID int64, action string) error {
+	res, err := db.db.ExecContext(ctx, `
+		UPDATE chat
+		SET enable_`+action+` = 0
+		WHERE id = $1
+	`, chatID)
+	if err != nil {
+		return err
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if n == 0 {
+		return ErrNotFound
+	}
+	return err
+}

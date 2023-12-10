@@ -622,7 +622,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 
 func (h Handler) Enable(opt string) tg.HandlerFunc {
 	return func(bot *tg.Bot, u tg.Update) error {
-		err := h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, "cask")
+		err := h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
 			return err
 		}
@@ -630,6 +630,20 @@ func (h Handler) Enable(opt string) tg.HandlerFunc {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
 			Text:             "ativado",
+		}
+	}
+}
+
+func (h Handler) Disable(opt string) tg.HandlerFunc {
+	return func(bot *tg.Bot, u tg.Update) error {
+		err := h.DB.ChatDisable(context.TODO(), u.Message.Chat.ID, opt)
+		if err != nil {
+			return err
+		}
+
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "desativado",
 		}
 	}
 }
@@ -768,6 +782,11 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 	// sed commands
 	re := regexp.MustCompile(`^(s|y)\/.*\/`)
 	if re.MatchString(u.Message.Text) && u.Message.ReplyToMessage != nil {
+		enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "sed")
+		if !enables {
+			return nil
+		}
+
 		cmd := exec.CommandContext(context.TODO(), "sed", "--sandbox", u.Message.Text)
 		buf := &bytes.Buffer{}
 		cmd.Stdout = buf

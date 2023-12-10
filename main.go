@@ -68,10 +68,17 @@ func main() {
 	c.HandleCommand("arand", h.SendRandomAudio)
 	c.HandleCommand("ask", h.GPTCompletion)
 	c.HandleCommand("cask", h.GPTChatCompletion)
-	c.HandleCommand("enablecask", h.RequireAdmin(h.Enable("cask")))
 	c.HandleCommand("backup", h.RequireGod(h.Backup))
 	c.HandleCallbackQuery(h.CallbackQuery)
 	c.HandleInlineQuery(h.InlineQuery)
+
+	// switches
+	c.HandleCommand("enablecask", h.RequireAdmin(h.Enable("cask")))
+	c.HandleCommand("disablecask", h.RequireAdmin(h.Disable("cask")))
+	c.HandleCommand("enablesed", h.RequireAdmin(h.Enable("sed")))
+	c.HandleCommand("disablesed", h.RequireAdmin(h.Disable("sed")))
+
 	c.HandleText(h.Text)
+
 	c.Start()
 }
