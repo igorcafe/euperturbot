@@ -25,24 +25,6 @@ type Handler struct {
 	Config  *config.Config
 }
 
-func (h Handler) StartedMiddleware() tg.Middleware {
-	return func(next tg.HandlerFunc) tg.HandlerFunc {
-		return func(bot *tg.Bot, u tg.Update) error {
-			if u.Message.Text == "/start" {
-				return next(bot, u)
-			}
-
-			_, err := h.DB.FindChat(context.TODO(), u.Message.Chat.ID)
-			if errors.Is(err, db.ErrNotFound) {
-				// chat not /start'ed. ignore
-				return nil
-			}
-
-			return next(bot, u)
-		}
-	}
-}
-
 func (h Handler) Start(bot *tg.Bot, u tg.Update) error {
 	err := h.DB.SaveChat(context.TODO(), db.Chat{
 		ID:    u.Message.Chat.ID,
@@ -447,17 +429,7 @@ func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
-	chunks := strings.SplitN(u.Message.Text, " ", 2)
-	if len(chunks) != 2 {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "faltou a pergunta",
-		}
-	}
-
-	name := username(u.Message.From)
-
+func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []oai.Message) error {
 	msg, err := bot.SendMessage(tg.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
@@ -468,17 +440,9 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 	}
 
 	resp, err := h.OAI.Completion(&oai.CompletionParams{
-		Messages: []oai.Message{
-			{
-				Content: fmt.Sprintf(
-					"Meu nome é %s. Me responda com @%s.\n%s",
-					name,
-					name,
-					chunks[1],
-				),
-			},
-		},
+		Messages: msgs,
 	})
+
 	var rateErr oai.ErrRateLimit
 	if errors.As(err, &rateErr) {
 		_, err = bot.EditMessageText(tg.EditMessageTextParams{
@@ -497,6 +461,11 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 					Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", secs),
 				})
 			}
+			_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+				ChatID:    u.Message.Chat.ID,
+				MessageID: msg.MessageID,
+				Text:      "manda de novo ae",
+			})
 		}()
 		return err
 	}
@@ -514,8 +483,32 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 		MessageID: msg.MessageID,
 		Text:      resp.Choices[0].Message.Content,
 	})
-
 	return err
+}
+
+func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
+	chunks := strings.SplitN(u.Message.Text, " ", 2)
+	if len(chunks) != 2 {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "faltou a pergunta",
+		}
+	}
+
+	name := username(u.Message.From)
+
+	msgs := []oai.Message{
+		{
+			Content: fmt.Sprintf(
+				"Meu nome é %s. Me responda com @%s.\n%s",
+				name,
+				name,
+				chunks[1],
+			),
+		},
+	}
+
+	return h.gptCompletion(bot, u, msgs)
 }
 
 func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
@@ -645,48 +638,6 @@ func (h Handler) Backup(bot *tg.Bot, u tg.Update) error {
 	})
 }
 
-func (h Handler) RequireGod(next tg.HandlerFunc) tg.HandlerFunc {
-	return func(bot *tg.Bot, u tg.Update) error {
-		if u.Message.Chat.Type == "private" && u.Message.From.ID == h.Config.GodID {
-			return next(bot, u)
-		}
-
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "você não tem permissão para isso",
-		}
-	}
-}
-
-func (h Handler) RequireAdmin(next tg.HandlerFunc) tg.HandlerFunc {
-	return func(bot *tg.Bot, u tg.Update) error {
-		if u.Message.Chat.Type == "private" {
-			return next(bot, u)
-		}
-
-		if u.Message.From.ID == h.Config.GodID {
-			return next(bot, u)
-		}
-
-		member, err := bot.GetChatMember(tg.GetChatMemberParams{
-			ChatID: u.Message.Chat.ID,
-			UserID: u.Message.From.ID,
-		})
-		if err != nil {
-			return err
-		}
-
-		if member.Status == "creator" || member.Status == "administrator" {
-			return next(bot, u)
-		}
-
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "você não tem permissão para isso",
-		}
-	}
-}
-
 func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 	var err error
 
@@ -811,6 +762,25 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
+	// if reply to chatGPT, treat as /ask
+	if u.Message.ReplyToMessage != nil && u.Message.ReplyToMessage.From.ID == h.BotInfo.ID {
+		name := username(u.Message.From)
+		return h.gptCompletion(bot, u, []oai.Message{
+			{
+				Role:    "assistant",
+				Content: u.Message.ReplyToMessage.Text,
+			},
+			{
+				Content: fmt.Sprintf(
+					"Meu nome é %s. Me responda com @%s.\n%s",
+					name,
+					name,
+					u.Message.Text,
+				),
+			},
+		})
+	}
+
 	// call subscribers
 	txt := strings.TrimSpace(u.Message.Text)
 	if strings.HasPrefix(txt, "#") {
