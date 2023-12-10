@@ -388,6 +388,11 @@ func (h Handler) UncountEvent(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
+	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
+	if !enables {
+		return nil
+	}
+
 	if u.Message.ReplyToMessage == nil {
 		return tg.SendMessageParams{
 			Text: "responda ao audio que quer salvar",
@@ -415,6 +420,11 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
+	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
+	if !enables {
+		return nil
+	}
+
 	voice, err := h.DB.FindRandomVoice(u.Message.Chat.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return tg.SendMessageParams{
