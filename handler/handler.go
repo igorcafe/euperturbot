@@ -393,7 +393,9 @@ func (h Handler) UncountEvent(bot *tg.Bot, u tg.Update) error {
 func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
-		return nil
+		return tg.SendMessageParams{
+			Text: "comando desativado. ative com /enableaudio",
+		}
 	}
 
 	if u.Message.ReplyToMessage == nil {
@@ -425,7 +427,9 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
-		return nil
+		return tg.SendMessageParams{
+			Text: "comando desativado. ative com /enableaudio",
+		}
 	}
 
 	voice, err := h.DB.FindRandomVoice(u.Message.Chat.ID)
