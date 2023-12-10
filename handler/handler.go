@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand"
+	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -788,6 +791,27 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 			return nil
 		}
 		return h.callSubs(bot, u, txt, true)
+	}
+
+	// sed commands
+	re := regexp.MustCompile(`^(s|y)\/.*\/$`)
+	if re.MatchString(u.Message.Text) && u.Message.ReplyToMessage != nil {
+		cmd := exec.CommandContext(context.TODO(), "sed", "--sandbox", u.Message.Text)
+		buf := &bytes.Buffer{}
+		cmd.Stdout = buf
+		cmd.Stdin = strings.NewReader(u.Message.ReplyToMessage.Text)
+
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		_, err = bot.SendMessage(tg.SendMessageParams{
+			ChatID:           u.Message.Chat.ID,
+			ReplyToMessageID: u.Message.ReplyToMessage.MessageID,
+			Text:             buf.String(),
+		})
+		return err
 	}
 
 	// save message
