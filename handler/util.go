@@ -140,23 +140,3 @@ func validateTopic(topic string) error {
 	}
 	return nil
 }
-
-func (h Handler) isAdmin(bot *tg.Bot, u tg.Update) (bool, error) {
-	if u.Message.Chat.Type == "private" {
-		return true, nil
-	}
-
-	if u.Message.From.ID == h.Config.GodID {
-		return true, nil
-	}
-
-	member, err := bot.GetChatMember(tg.GetChatMemberParams{
-		ChatID: u.Message.Chat.ID,
-		UserID: u.Message.From.ID,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return member.Status == "creator" || member.Status == "administrator", nil
-}

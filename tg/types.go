@@ -132,6 +132,11 @@ type AnswerInlineQueryParams struct {
 	Results       []InlineQueryResult `json:"results"`
 }
 
+type SendDocumentParams struct {
+	ChatID   int64
+	FileName string
+}
+
 type InlineQueryResult struct {
 	Type                string              `json:"type"`
 	ID                  string              `json:"id"`

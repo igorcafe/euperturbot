@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -169,6 +171,59 @@ func (bot *Bot) EditMessageText(params EditMessageTextParams) (*Message, error) 
 func (bot *Bot) AnswerInlineQuery(params AnswerInlineQueryParams) error {
 	_, err := apiJSONRequest[bool](bot, "answerInlineQuery", params)
 	return err
+}
+
+func (bot *Bot) SendDocument(params SendDocumentParams) error {
+	f, err := os.Open(params.FileName)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	body := &bytes.Buffer{}
+	mw := multipart.NewWriter(body)
+
+	part, err := mw.CreateFormFile("document", params.FileName)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(part, f)
+	if err != nil {
+		return err
+	}
+
+	err = mw.WriteField("chat_id", fmt.Sprint(params.ChatID))
+	if err != nil {
+		return err
+	}
+
+	err = mw.Close()
+	if err != nil {
+		return err
+	}
+
+	u := bot.baseURL + bot.token + "/sendDocument"
+	req, err := http.NewRequest("POST", u, body)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+
+	resp, err := bot.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var res Result[any]
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (bot *Bot) hideToken(s string) string {

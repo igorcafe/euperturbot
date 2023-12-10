@@ -44,13 +44,6 @@ func (h Handler) StartedMiddleware() tg.Middleware {
 }
 
 func (h Handler) Start(bot *tg.Bot, u tg.Update) error {
-	if admin, _ := h.isAdmin(bot, u); !admin {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "você não tem permissão isso",
-		}
-	}
-
 	err := h.DB.SaveChat(context.TODO(), db.Chat{
 		ID:    u.Message.Chat.ID,
 		Title: u.Message.Chat.Name(),
@@ -631,27 +624,66 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) EnableCAsk(bot *tg.Bot, u tg.Update) error {
-	admin, err := h.isAdmin(bot, u)
-	if err != nil {
-		return err
-	}
+func (h Handler) Enable(opt string) tg.HandlerFunc {
+	return func(bot *tg.Bot, u tg.Update) error {
+		err := h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, "cask")
+		if err != nil {
+			return err
+		}
 
-	if !admin {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
-			Text:             "você não tem permissão isso",
+			Text:             "ativado",
 		}
 	}
+}
 
-	err = h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, "cask")
-	if err != nil {
-		return err
+func (h Handler) Backup(bot *tg.Bot, u tg.Update) error {
+	return bot.SendDocument(tg.SendDocumentParams{
+		ChatID:   h.Config.GodID,
+		FileName: "./euperturbot.db",
+	})
+}
+
+func (h Handler) RequireGod(next tg.HandlerFunc) tg.HandlerFunc {
+	return func(bot *tg.Bot, u tg.Update) error {
+		if u.Message.Chat.Type == "private" && u.Message.From.ID == h.Config.GodID {
+			return next(bot, u)
+		}
+
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "você não tem permissão para isso",
+		}
 	}
+}
 
-	return tg.SendMessageParams{
-		ReplyToMessageID: u.Message.MessageID,
-		Text:             "ativado",
+func (h Handler) RequireAdmin(next tg.HandlerFunc) tg.HandlerFunc {
+	return func(bot *tg.Bot, u tg.Update) error {
+		if u.Message.Chat.Type == "private" {
+			return next(bot, u)
+		}
+
+		if u.Message.From.ID == h.Config.GodID {
+			return next(bot, u)
+		}
+
+		member, err := bot.GetChatMember(tg.GetChatMemberParams{
+			ChatID: u.Message.Chat.ID,
+			UserID: u.Message.From.ID,
+		})
+		if err != nil {
+			return err
+		}
+
+		if member.Status == "creator" || member.Status == "administrator" {
+			return next(bot, u)
+		}
+
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "você não tem permissão para isso",
+		}
 	}
 }
 
