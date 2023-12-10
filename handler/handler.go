@@ -794,7 +794,7 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 	}
 
 	// sed commands
-	re := regexp.MustCompile(`^(s|y)\/.*\/$`)
+	re := regexp.MustCompile(`^(s|y)\/.*\/`)
 	if re.MatchString(u.Message.Text) && u.Message.ReplyToMessage != nil {
 		cmd := exec.CommandContext(context.TODO(), "sed", "--sandbox", u.Message.Text)
 		buf := &bytes.Buffer{}
