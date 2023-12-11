@@ -832,6 +832,11 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 
 	// if reply to chatGPT, treat as /ask
 	if u.Message.ReplyToMessage != nil && u.Message.ReplyToMessage.From.ID == h.BotInfo.ID {
+		enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
+		if !enables {
+			return nil
+		}
+
 		name := username(u.Message.From)
 		return h.gptCompletion(bot, u, []oai.Message{
 			{
