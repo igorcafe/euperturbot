@@ -26,6 +26,17 @@ func (h Handler) StartedMiddleware() tg.Middleware {
 	}
 }
 
+func (h Handler) IgnoreForwardedCommandMiddleware() tg.Middleware {
+	return func(next tg.HandlerFunc) tg.HandlerFunc {
+		return func(bot *tg.Bot, u tg.Update) error {
+			if u.Message.ForwardSenderName != "" || u.Message.FowardFrom != nil {
+				return nil
+			}
+			return next(bot, u)
+		}
+	}
+}
+
 func (h Handler) RequireGod(next tg.HandlerFunc) tg.HandlerFunc {
 	return func(bot *tg.Bot, u tg.Update) error {
 		if u.Message.Chat.Type == "private" && u.Message.From.ID == h.Config.GodID {

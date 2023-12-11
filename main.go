@@ -54,6 +54,8 @@ func main() {
 	}
 
 	c.Middleware(h.StartedMiddleware(), tg.AnyMessage)
+	c.Middleware(h.IgnoreForwardedCommandMiddleware(), tg.AnyCommand)
+
 	c.HandleCommand("start", h.RequireAdmin(h.Start))
 	c.HandleCommand("suba", h.SubToTopic)
 	c.HandleCommand("desca", h.UnsubTopic)

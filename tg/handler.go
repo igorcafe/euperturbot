@@ -2,6 +2,7 @@ package tg
 
 import (
 	"log"
+	"regexp"
 	"runtime/debug"
 	"strings"
 )
@@ -12,6 +13,13 @@ type CriteriaFunc func(u Update) bool
 
 var AnyMessage CriteriaFunc = func(u Update) bool {
 	return u.Message != nil
+}
+
+var AnyCommand CriteriaFunc = func(u Update) bool {
+	if u.Message == nil {
+		return false
+	}
+	return regexp.MustCompile(`^\/\S+`).MatchString(u.Message.Text)
 }
 
 type UpdateController struct {
