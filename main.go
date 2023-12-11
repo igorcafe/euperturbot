@@ -75,14 +75,14 @@ func main() {
 	c.HandleInlineQuery(h.InlineQuery)
 
 	// switches
-	c.HandleCommand("enablecreatetopics", h.RequireAdmin(h.Enable("create_topics")))
-	c.HandleCommand("disablecreatetopics", h.RequireAdmin(h.Disable("create_topics")))
-	c.HandleCommand("enableaudio", h.RequireAdmin(h.Enable("audio")))
-	c.HandleCommand("disableaudio", h.RequireAdmin(h.Disable("audio")))
-	c.HandleCommand("enablecask", h.RequireAdmin(h.Enable("cask")))
-	c.HandleCommand("disablecask", h.RequireAdmin(h.Disable("cask")))
-	c.HandleCommand("enablesed", h.RequireAdmin(h.Enable("sed")))
-	c.HandleCommand("disablesed", h.RequireAdmin(h.Disable("sed")))
+	c.HandleCommand("enable_create_topics", h.RequireAdmin(h.Enable("create_topics")))
+	c.HandleCommand("disable_create_topics", h.RequireAdmin(h.Disable("create_topics")))
+	c.HandleCommand("enable_audio", h.RequireAdmin(h.Enable("audio")))
+	c.HandleCommand("disable_audio", h.RequireAdmin(h.Disable("audio")))
+	c.HandleCommand("enable_cask", h.RequireAdmin(h.Enable("cask")))
+	c.HandleCommand("disable_cask", h.RequireAdmin(h.Disable("cask")))
+	c.HandleCommand("enable_sed", h.RequireAdmin(h.Enable("sed")))
+	c.HandleCommand("disable_sed", h.RequireAdmin(h.Disable("sed")))
 
 	c.HandleText(h.Text)
 
