@@ -8,7 +8,7 @@ import (
 	"github.com/igoracmelo/euperturbot/tg"
 )
 
-func (h Handler) StartedMiddleware() tg.Middleware {
+func (h Handler) EnsureStarted() tg.Middleware {
 	return func(next tg.HandlerFunc) tg.HandlerFunc {
 		return func(bot *tg.Bot, u tg.Update) error {
 			if u.Message.Text == "/start" {
@@ -26,7 +26,7 @@ func (h Handler) StartedMiddleware() tg.Middleware {
 	}
 }
 
-func (h Handler) IgnoreForwardedCommandMiddleware() tg.Middleware {
+func (h Handler) IgnoreForwardedCommand() tg.Middleware {
 	return func(next tg.HandlerFunc) tg.HandlerFunc {
 		return func(bot *tg.Bot, u tg.Update) error {
 			if u.Message.ForwardSenderName != "" || u.Message.FowardFrom != nil {

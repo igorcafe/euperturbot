@@ -53,8 +53,8 @@ func main() {
 		Config:  &conf,
 	}
 
-	c.Middleware(h.StartedMiddleware(), tg.AnyMessage)
-	c.Middleware(h.IgnoreForwardedCommandMiddleware(), tg.AnyCommand)
+	c.Middleware(h.EnsureStarted(), tg.AnyMessage)
+	c.Middleware(h.IgnoreForwardedCommand(), tg.AnyCommand)
 
 	c.HandleCommand("start", h.RequireAdmin(h.Start))
 	c.HandleCommand("suba", h.SubToTopic)
