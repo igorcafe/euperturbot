@@ -394,7 +394,7 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return tg.SendMessageParams{
-			Text: "comando desativado. ative com /enableaudio",
+			Text: "comando desativado. ative com /enable_audio",
 		}
 	}
 
@@ -428,7 +428,7 @@ func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return tg.SendMessageParams{
-			Text: "comando desativado. ative com /enableaudio",
+			Text: "comando desativado. ative com /enable_audio",
 		}
 	}
 
@@ -507,6 +507,14 @@ func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []oai.Message) err
 }
 
 func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
+	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
+	if !enables {
+		return tg.SendMessageParams{
+			ReplyToMessageID: u.Message.MessageID,
+			Text:             "comando desativado. ative com /enable_ask",
+		}
+	}
+
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
 	if len(chunks) != 2 {
 		return tg.SendMessageParams{
@@ -536,7 +544,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 	if !enables {
 		return tg.SendMessageParams{
 			ReplyToMessageID: u.Message.MessageID,
-			Text:             "comando desativado. ative com /enablecask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do bot",
+			Text:             "comando desativado. ative com /enable_cask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do bot",
 		}
 	}
 

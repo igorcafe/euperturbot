@@ -79,6 +79,8 @@ func main() {
 	c.HandleCommand("disable_create_topics", h.RequireAdmin(h.Disable("create_topics")))
 	c.HandleCommand("enable_audio", h.RequireAdmin(h.Enable("audio")))
 	c.HandleCommand("disable_audio", h.RequireAdmin(h.Disable("audio")))
+	c.HandleCommand("enable_ask", h.RequireAdmin(h.Enable("ask")))
+	c.HandleCommand("disable_ask", h.RequireAdmin(h.Disable("ask")))
 	c.HandleCommand("enable_cask", h.RequireAdmin(h.Enable("cask")))
 	c.HandleCommand("disable_cask", h.RequireAdmin(h.Disable("cask")))
 	c.HandleCommand("enable_sed", h.RequireAdmin(h.Enable("sed")))
