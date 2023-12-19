@@ -812,7 +812,7 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 			return nil
 		}
 
-		cmd := exec.CommandContext(context.TODO(), "sed", "--sandbox", u.Message.Text)
+		cmd := exec.CommandContext(context.TODO(), "sed", "--sandbox", "-E", u.Message.Text)
 		buf := &bytes.Buffer{}
 		cmd.Stdout = buf
 		cmd.Stdin = strings.NewReader(u.Message.ReplyToMessage.Text)
