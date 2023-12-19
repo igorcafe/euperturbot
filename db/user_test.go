@@ -12,7 +12,7 @@ func TestUserTopic(t *testing.T) {
 	}
 	defer myDB.Close()
 
-	err = myDB.Migrate(context.Background())
+	err = myDB.Migrate(context.Background(), "./migrations")
 	if err != nil {
 		t.Fatal(err)
 	}

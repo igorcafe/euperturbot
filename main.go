@@ -26,7 +26,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = db.Migrate(context.Background())
+	err = db.Migrate(context.Background(), "./db/migrations")
 	if err != nil {
 		panic(err)
 	}
