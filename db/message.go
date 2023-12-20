@@ -66,8 +66,8 @@ func (db *DB) FindMessageThread(ctx context.Context, chatID int64, msgID int) ([
 	var msgs []Message
 
 	err := db.db.SelectContext(ctx, &msgs, `
-	WITH RECURSIVE replies(id, text, reply_to_message_id) AS (
-		SELECT id, text, reply_to_message_id
+	WITH RECURSIVE replies(id, reply_to_message_id) AS (
+		SELECT id, reply_to_message_id
 		FROM message
 		WHERE
 			chat_id = $1 AND
@@ -75,7 +75,7 @@ func (db *DB) FindMessageThread(ctx context.Context, chatID int64, msgID int) ([
 
 		UNION ALL
 
-		SELECT m.id, m.text, m.reply_to_message_id
+		SELECT m.id, m.reply_to_message_id
 		FROM message m
 		INNER JOIN replies r
 		ON
