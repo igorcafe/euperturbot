@@ -4,12 +4,12 @@ import (
 	"context"
 	"log"
 
-	_ "github.com/glebarez/go-sqlite"
 	"github.com/igoracmelo/euperturbot/config"
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/handler"
 	"github.com/igoracmelo/euperturbot/oai"
 	"github.com/igoracmelo/euperturbot/tg"
+	_ "modernc.org/sqlite"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	_ "github.com/glebarez/go-sqlite"
+	_ "modernc.org/sqlite"
 )
 
 func Test_Migrate(t *testing.T) {
