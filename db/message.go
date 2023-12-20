@@ -61,3 +61,32 @@ func (db *DB) FindMessagesBeforeDate(ctx context.Context, chatID int64, date tim
 
 	return msgs, err
 }
+
+func (db *DB) FindMessageThread(ctx context.Context, chatID int64, msgID int) ([]Message, error) {
+	var msgs []Message
+
+	err := db.db.SelectContext(ctx, &msgs, `
+	WITH RECURSIVE replies(id, text, reply_to_message_id) AS (
+		SELECT id, text, reply_to_message_id
+		FROM message
+		WHERE
+			chat_id = $1 AND
+			id = $2
+
+		UNION ALL
+
+		SELECT m.id, m.text, m.reply_to_message_id
+		FROM message m
+		INNER JOIN replies r
+		ON
+		 	m.chat_id = $1 AND
+			m.id = r.reply_to_message_id
+	)
+
+	SELECT m.* FROM message m
+	JOIN replies r ON m.id = r.id
+	ORDER BY id;
+	`, chatID, msgID)
+
+	return msgs, err
+}
