@@ -498,10 +498,40 @@ func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []oai.Message) err
 		return err
 	}
 
-	_, err = bot.EditMessageText(tg.EditMessageTextParams{
+	msg, err = bot.EditMessageText(tg.EditMessageTextParams{
 		ChatID:    u.Message.Chat.ID,
 		MessageID: msg.MessageID,
 		Text:      resp.Choices[0].Message.Content,
+	})
+	if err != nil {
+		return err
+	}
+
+	txt := strings.TrimPrefix(strings.TrimPrefix(u.Message.Text, "/cask "), "/ask ")
+
+	replyTo := 0
+	if u.Message.ReplyToMessage != nil {
+		replyTo = u.Message.ReplyToMessage.MessageID
+	}
+	err = h.DB.SaveMessage(context.TODO(), db.Message{
+		ID:               u.Message.MessageID,
+		ChatID:           u.Message.Chat.ID,
+		Text:             txt,
+		Date:             time.Unix(u.Message.Date, 0),
+		UserID:           u.Message.From.ID,
+		ReplyToMessageID: replyTo,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = h.DB.SaveMessage(context.TODO(), db.Message{
+		ID:               msg.MessageID,
+		ChatID:           msg.Chat.ID,
+		Text:             msg.Text,
+		Date:             time.Unix(msg.Date, 0),
+		UserID:           h.Config.GPTUserID,
+		ReplyToMessageID: u.Message.MessageID,
 	})
 	return err
 }
@@ -837,21 +867,47 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 			return nil
 		}
 
+		msg, err := h.DB.FindMessage(context.TODO(), u.Message.Chat.ID, u.Message.ReplyToMessage.MessageID)
+		if errors.Is(err, db.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return nil
+		}
+
+		if msg.UserID != h.Config.GPTUserID {
+			return nil
+		}
+
+		msgs, err := h.DB.FindMessageThread(context.TODO(), u.Message.Chat.ID, u.Message.ReplyToMessage.MessageID)
+		if err != nil {
+			return err
+		}
+
+		oaiMsgs := []oai.Message{}
+		for _, msg := range msgs {
+			role := "user"
+			if msg.UserID == h.Config.GPTUserID {
+				role = "assistant"
+			}
+
+			oaiMsgs = append(oaiMsgs, oai.Message{
+				Role:    role,
+				Content: msg.Text,
+			})
+		}
+
 		name := username(u.Message.From)
-		return h.gptCompletion(bot, u, []oai.Message{
-			{
-				Role:    "assistant",
-				Content: u.Message.ReplyToMessage.Text,
-			},
-			{
-				Content: fmt.Sprintf(
-					"Meu nome é %s. Me responda com @%s.\n%s",
-					name,
-					name,
-					u.Message.Text,
-				),
-			},
+		oaiMsgs = append(oaiMsgs, oai.Message{
+			Content: fmt.Sprintf(
+				"Meu nome é %s. Responda a seguinte mensagem se referindo a mim como @%s.\n%s",
+				name,
+				name,
+				u.Message.Text,
+			),
 		})
+
+		return h.gptCompletion(bot, u, oaiMsgs)
 	}
 
 	// call subscribers

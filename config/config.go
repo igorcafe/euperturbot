@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	GodID     int64
+	GPTUserID int64 `json:"gptUserID"`
 	BotToken  string
 	OpenAIKey string
 }

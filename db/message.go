@@ -44,6 +44,15 @@ func (db *DB) SaveMessage(ctx context.Context, msg Message) error {
 	return err
 }
 
+func (db *DB) FindMessage(ctx context.Context, chatID int64, msgID int) (Message, error) {
+	var msg Message
+	err := db.db.GetContext(ctx, &msg, `
+		SELECT * FROM message
+		WHERE chat_id = $1 AND id = $2
+	`, chatID, msgID)
+	return msg, err
+}
+
 func (db *DB) FindMessagesBeforeDate(ctx context.Context, chatID int64, date time.Time, count int) ([]Message, error) {
 	msgs := []Message{}
 	err := db.db.SelectContext(context.TODO(), &msgs, `
