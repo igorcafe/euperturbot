@@ -9,6 +9,7 @@ import (
 	"github.com/igoracmelo/euperturbot/handler"
 	"github.com/igoracmelo/euperturbot/oai"
 	"github.com/igoracmelo/euperturbot/tg"
+	"github.com/igoracmelo/euperturbot/tg/tgh"
 	_ "modernc.org/sqlite"
 )
 
@@ -26,6 +27,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer db.Close()
+
 	err = db.Migrate(context.Background(), "./db/migrations")
 	if err != nil {
 		panic(err)
@@ -44,7 +47,7 @@ func main() {
 	}
 
 	updates := bot.GetUpdatesChannel()
-	c := tg.NewUpdateController(bot, updates)
+	c := tgh.NewUpdateController(bot, updates)
 
 	h := handler.Handler{
 		DB:      db,
@@ -53,40 +56,40 @@ func main() {
 		Config:  &conf,
 	}
 
-	c.Middleware(h.EnsureStarted(), tg.AnyMessage)
-	c.Middleware(h.IgnoreForwardedCommand(), tg.AnyCommand)
+	c.Middleware(h.EnsureStarted(), tgh.AnyMessage)
+	c.Middleware(h.IgnoreForwardedCommand(), tgh.AnyCommand)
 
-	c.HandleCommand("start", h.RequireAdmin(h.Start))
-	c.HandleCommand("suba", h.SubToTopic)
-	c.HandleCommand("desca", h.UnsubTopic)
-	c.HandleCommand("pollo", h.CreatePoll)
-	c.HandleCommand("bora", h.CallSubs)
-	c.HandleCommand("quem", h.ListSubs)
-	c.HandleCommand("lista", h.ListUserTopics)
-	c.HandleCommand("listudo", h.ListChatTopics)
-	// c.HandleCommand("conta", h.CountEvent)
-	// c.HandleCommand("desconta", h.UncountEvent)
-	c.HandleCommand("a", h.SaveAudio)
-	c.HandleCommand("arand", h.SendRandomAudio)
-	c.HandleCommand("ask", h.GPTCompletion)
-	c.HandleCommand("cask", h.GPTChatCompletion)
-	c.HandleCommand("backup", h.RequireGod(h.Backup))
-	c.HandleCallbackQuery(h.CallbackQuery)
-	c.HandleInlineQuery(h.InlineQuery)
+	c.Handle(tgh.Command("start"), h.RequireAdmin(h.Start))
+	c.Handle(tgh.Command("suba"), h.SubToTopic)
+	c.Handle(tgh.Command("desca"), h.UnsubTopic)
+	c.Handle(tgh.Command("pollo"), h.CreatePoll)
+	c.Handle(tgh.Command("bora"), h.CallSubs)
+	c.Handle(tgh.Command("quem"), h.ListSubs)
+	c.Handle(tgh.Command("lista"), h.ListUserTopics)
+	c.Handle(tgh.Command("listudo"), h.ListChatTopics)
+	// c.Handle(tgh.Command("conta"), h.CountEvent)
+	// c.Handle(tgh.Command("desconta"), h.UncountEvent)
+	c.Handle(tgh.Command("a"), h.SaveAudio)
+	c.Handle(tgh.Command("arand"), h.SendRandomAudio)
+	c.Handle(tgh.Command("ask"), h.GPTCompletion)
+	c.Handle(tgh.Command("cask"), h.GPTChatCompletion)
+	c.Handle(tgh.Command("backup"), h.RequireGod(h.Backup))
+	c.Handle(tgh.AnyCallbackQuery, h.CallbackQuery)
+	c.Handle(tgh.AnyInlineQuery, h.InlineQuery)
 
 	// switches
-	c.HandleCommand("enable_create_topics", h.RequireAdmin(h.Enable("create_topics")))
-	c.HandleCommand("disable_create_topics", h.RequireAdmin(h.Disable("create_topics")))
-	c.HandleCommand("enable_audio", h.RequireAdmin(h.Enable("audio")))
-	c.HandleCommand("disable_audio", h.RequireAdmin(h.Disable("audio")))
-	c.HandleCommand("enable_ask", h.RequireAdmin(h.Enable("ask")))
-	c.HandleCommand("disable_ask", h.RequireAdmin(h.Disable("ask")))
-	c.HandleCommand("enable_cask", h.RequireAdmin(h.Enable("cask")))
-	c.HandleCommand("disable_cask", h.RequireAdmin(h.Disable("cask")))
-	c.HandleCommand("enable_sed", h.RequireAdmin(h.Enable("sed")))
-	c.HandleCommand("disable_sed", h.RequireAdmin(h.Disable("sed")))
+	c.Handle(tgh.Command("enable_create_topics"), h.RequireAdmin(h.Enable("create_topics")))
+	c.Handle(tgh.Command("disable_create_topics"), h.RequireAdmin(h.Disable("create_topics")))
+	c.Handle(tgh.Command("enable_audio"), h.RequireAdmin(h.Enable("audio")))
+	c.Handle(tgh.Command("disable_audio"), h.RequireAdmin(h.Disable("audio")))
+	c.Handle(tgh.Command("enable_ask"), h.RequireAdmin(h.Enable("ask")))
+	c.Handle(tgh.Command("disable_ask"), h.RequireAdmin(h.Disable("ask")))
+	c.Handle(tgh.Command("enable_cask"), h.RequireAdmin(h.Enable("cask")))
+	c.Handle(tgh.Command("disable_cask"), h.RequireAdmin(h.Disable("cask")))
+	c.Handle(tgh.Command("enable_sed"), h.RequireAdmin(h.Enable("sed")))
+	c.Handle(tgh.Command("disable_sed"), h.RequireAdmin(h.Disable("sed")))
 
-	c.HandleText(h.Text)
+	c.Handle(tgh.AnyText, h.Text)
 
 	c.Start()
 }

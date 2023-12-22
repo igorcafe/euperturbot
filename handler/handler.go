@@ -18,6 +18,7 @@ import (
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/oai"
 	"github.com/igoracmelo/euperturbot/tg"
+	"github.com/igoracmelo/euperturbot/tg/tgh"
 	"github.com/igoracmelo/euperturbot/util"
 )
 
@@ -304,7 +305,7 @@ func (h Handler) ListChatTopics(bot *tg.Bot, u tg.Update) error {
 
 func (h Handler) CountEvent(bot *tg.Bot, u tg.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
-	if len(fields) == 1 {
+	if len(fields) < 2 {
 		return tg.SendMessageParams{
 			Text: "faltando nome do evento",
 		}
@@ -675,7 +676,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) Enable(opt string) tg.HandlerFunc {
+func (h Handler) Enable(opt string) tgh.HandlerFunc {
 	return func(bot *tg.Bot, u tg.Update) error {
 		err := h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
@@ -689,7 +690,7 @@ func (h Handler) Enable(opt string) tg.HandlerFunc {
 	}
 }
 
-func (h Handler) Disable(opt string) tg.HandlerFunc {
+func (h Handler) Disable(opt string) tgh.HandlerFunc {
 	return func(bot *tg.Bot, u tg.Update) error {
 		err := h.DB.ChatDisable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {

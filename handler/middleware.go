@@ -6,10 +6,11 @@ import (
 
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/tg"
+	"github.com/igoracmelo/euperturbot/tg/tgh"
 )
 
-func (h Handler) EnsureStarted() tg.Middleware {
-	return func(next tg.HandlerFunc) tg.HandlerFunc {
+func (h Handler) EnsureStarted() tgh.Middleware {
+	return func(next tgh.HandlerFunc) tgh.HandlerFunc {
 		return func(bot *tg.Bot, u tg.Update) error {
 			if u.Message.Text == "/start" {
 				return next(bot, u)
@@ -26,8 +27,8 @@ func (h Handler) EnsureStarted() tg.Middleware {
 	}
 }
 
-func (h Handler) IgnoreForwardedCommand() tg.Middleware {
-	return func(next tg.HandlerFunc) tg.HandlerFunc {
+func (h Handler) IgnoreForwardedCommand() tgh.Middleware {
+	return func(next tgh.HandlerFunc) tgh.HandlerFunc {
 		return func(bot *tg.Bot, u tg.Update) error {
 			if u.Message.ForwardSenderName != "" || u.Message.FowardFrom != nil {
 				return nil
@@ -37,7 +38,7 @@ func (h Handler) IgnoreForwardedCommand() tg.Middleware {
 	}
 }
 
-func (h Handler) RequireGod(next tg.HandlerFunc) tg.HandlerFunc {
+func (h Handler) RequireGod(next tgh.HandlerFunc) tgh.HandlerFunc {
 	return func(bot *tg.Bot, u tg.Update) error {
 		if u.Message.Chat.Type == "private" && u.Message.From.ID == h.Config.GodID {
 			return next(bot, u)
@@ -50,7 +51,7 @@ func (h Handler) RequireGod(next tg.HandlerFunc) tg.HandlerFunc {
 	}
 }
 
-func (h Handler) RequireAdmin(next tg.HandlerFunc) tg.HandlerFunc {
+func (h Handler) RequireAdmin(next tgh.HandlerFunc) tgh.HandlerFunc {
 	return func(bot *tg.Bot, u tg.Update) error {
 		isAdmin, err := h.isAdmin(bot, u)
 		if err != nil {
