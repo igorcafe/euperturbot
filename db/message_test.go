@@ -3,7 +3,37 @@ package db
 import (
 	"context"
 	"testing"
+	"time"
 )
+
+func TestSaveAndFindMessage(t *testing.T) {
+	db := newDB(t)
+	defer db.Close()
+
+	want := Message{
+		ID:               1,
+		ChatID:           1,
+		Text:             "text",
+		Date:             time.Time{},
+		UserID:           1,
+		UserName:         "name",
+		ReplyToMessageID: 2,
+	}
+
+	err := db.SaveMessage(context.TODO(), want)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := db.FindMessage(context.TODO(), want.ChatID, want.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got != want {
+		t.Fatalf("want: %+v, got: %+v", want, got)
+	}
+}
 
 func TestFindMessageThread(t *testing.T) {
 	db := newDB(t)
