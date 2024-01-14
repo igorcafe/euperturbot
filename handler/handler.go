@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -709,6 +711,64 @@ func (h Handler) Backup(bot *tg.Bot, u tg.Update) error {
 		ChatID:   h.Config.GodID,
 		FileName: "./euperturbot.db",
 	})
+}
+
+// WIP
+func (h Handler) Xonotic(bot *tg.Bot, u tg.Update) error {
+	type XonoticResponse []struct {
+		Status        string
+		Name          string
+		Gametype      string
+		Map           string
+		Numplayers    int
+		Numspectators int
+		Ping          int
+		Players       []struct {
+			Name  string
+			Score int
+			Ping  int
+		}
+	}
+
+	resp, err := http.Get("http://dpmaster.deathmask.net/?game=xonotic&server=129.148.22.240:27000&hide=empty&json=1")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var data XonoticResponse
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return err
+	}
+	if len(data) < 1 {
+		return nil
+	}
+	server := data[0]
+
+	players := ""
+	// if len(server.Players) > 0 {
+	// 	players = "*players:*\n"
+	// }
+	for _, p := range server.Players {
+		players += fmt.Sprintf("%s \\- %d ms \\- %d pts\n", util.EscapeMarkdown(p.Name), p.Ping, p.Score)
+	}
+
+	txt := fmt.Sprintf(
+		"*%s*\n%d players\n%d spectators\n\n%s",
+		util.EscapeMarkdown(server.Name),
+		server.Numplayers,
+		server.Numspectators,
+		players,
+	)
+
+	_, err = bot.SendMessage(tg.SendMessageParams{
+		ChatID:           u.Message.Chat.ID,
+		ReplyToMessageID: u.Message.MessageID,
+		Text:             txt,
+		ParseMode:        "MarkdownV2",
+	})
+	return err
 }
 
 func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {

@@ -46,15 +46,15 @@ func main() {
 		panic(err)
 	}
 
-	updates := bot.GetUpdatesChannel()
-	c := tgh.NewUpdateController(bot, updates)
-
 	h := handler.Handler{
 		DB:      db,
 		OAI:     oai,
 		BotInfo: botInfo,
 		Config:  &conf,
 	}
+
+	updates := bot.GetUpdatesChannel()
+	c := tgh.NewUpdateController(bot, updates)
 
 	c.Middleware(h.EnsureStarted(), tgh.AnyMessage)
 	c.Middleware(h.IgnoreForwardedCommand(), tgh.AnyCommand)
@@ -74,6 +74,7 @@ func main() {
 	c.Handle(tgh.Command("ask"), h.GPTCompletion)
 	c.Handle(tgh.Command("cask"), h.GPTChatCompletion)
 	c.Handle(tgh.Command("backup"), h.RequireGod(h.Backup))
+	c.Handle(tgh.Command("xonotic"), h.Xonotic)
 	c.Handle(tgh.AnyCallbackQuery, h.CallbackQuery)
 	c.Handle(tgh.AnyInlineQuery, h.InlineQuery)
 
