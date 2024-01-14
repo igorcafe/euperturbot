@@ -38,24 +38,24 @@ func NewBot(token string) *Bot {
 	}
 }
 
-func apiJSONRequest[T any](bot *Bot, path string, data any) (*Result[T], error) {
+func apiJSONRequest[T any](bot *Bot, path string, data any) (res Result[T], err error) {
 	u := bot.baseURL + bot.token + "/" + path
 
 	var reqBody []byte
 	var reqReader io.Reader
-	var err error
 
 	if data != nil {
 		reqBody, err = json.Marshal(data)
 		if err != nil {
-			return nil, err
+			return
 		}
 		reqReader = bytes.NewReader(reqBody)
 	}
 
 	req, err := http.NewRequest("POST", u, reqReader)
 	if err != nil {
-		return nil, errors.New(bot.hideToken(err.Error()))
+		err = errors.New(bot.hideToken(err.Error()))
+		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
@@ -67,49 +67,38 @@ func apiJSONRequest[T any](bot *Bot, path string, data any) (*Result[T], error) 
 	})
 
 	if err != nil {
-		return nil, errors.New(bot.hideToken(err.Error()))
+		err = errors.New(bot.hideToken(err.Error()))
+		return
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return nil, bot.respError(resp, reqBody, respBody)
+		err = bot.respError(resp, reqBody, respBody)
+		return
 	}
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	var v Result[T]
-	err = json.Unmarshal(respBody, &v)
-	if err != nil {
-		return nil, err
-	}
-	return &v, nil
+	err = json.Unmarshal(respBody, &res)
+	return
 }
 
 func (bot *Bot) GetMe() (*User, error) {
 	res, err := apiJSONRequest[User](bot, "getMe", nil)
-	if err != nil {
-		return nil, err
-	}
 	bot.Username = res.Result.Username
 	return &res.Result, err
 }
 
 func (bot *Bot) GetChatMember(params GetChatMemberParams) (*ChatMember, error) {
 	res, err := apiJSONRequest[ChatMember](bot, "getMe", params)
-	if err != nil {
-		return nil, err
-	}
 	return &res.Result, err
 }
 
 func (bot *Bot) GetUpdates(params GetUpdatesParams) ([]Update, error) {
 	res, err := apiJSONRequest[[]Update](bot, "getUpdates", params)
-	if err != nil {
-		return nil, err
-	}
-	return res.Result, nil
+	return res.Result, err
 }
 
 func (bot *Bot) GetUpdatesChannel() chan Update {
@@ -138,34 +127,22 @@ func (bot *Bot) GetUpdatesChannel() chan Update {
 
 func (bot *Bot) SendVoice(params SendVoiceParams) (*Message, error) {
 	res, err := apiJSONRequest[Message](bot, "sendVoice", params)
-	if err != nil {
-		return nil, err
-	}
-	return &res.Result, nil
+	return &res.Result, err
 }
 
 func (bot *Bot) SendPoll(params SendPollParams) (*Message, error) {
 	res, err := apiJSONRequest[Message](bot, "sendPoll", params)
-	if err != nil {
-		return nil, err
-	}
-	return &res.Result, nil
+	return &res.Result, err
 }
 
 func (bot *Bot) SendMessage(params SendMessageParams) (*Message, error) {
 	res, err := apiJSONRequest[Message](bot, "sendMessage", params)
-	if err != nil {
-		return nil, err
-	}
-	return &res.Result, nil
+	return &res.Result, err
 }
 
 func (bot *Bot) EditMessageText(params EditMessageTextParams) (*Message, error) {
 	res, err := apiJSONRequest[Message](bot, "editMessageText", params)
-	if err != nil {
-		return nil, err
-	}
-	return &res.Result, nil
+	return &res.Result, err
 }
 
 func (bot *Bot) AnswerInlineQuery(params AnswerInlineQueryParams) error {
