@@ -9,6 +9,7 @@ import (
 
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/tg"
+	"github.com/igoracmelo/euperturbot/tg/tgh"
 )
 
 func (h Handler) callSubs(bot *tg.Bot, u tg.Update, topic string, quiet bool) error {
@@ -17,7 +18,7 @@ func (h Handler) callSubs(bot *tg.Bot, u tg.Update, topic string, quiet bool) er
 		if quiet {
 			return err
 		}
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "falha ao listar usuários",
 		}
 	}
@@ -26,7 +27,7 @@ func (h Handler) callSubs(bot *tg.Bot, u tg.Update, topic string, quiet bool) er
 		if quiet {
 			return nil
 		}
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "não tem ninguém inscrito nesse tópico",
 		}
 	}

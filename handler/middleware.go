@@ -44,9 +44,8 @@ func (h Handler) RequireGod(next tgh.HandlerFunc) tgh.HandlerFunc {
 			return next(bot, u)
 		}
 
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "você não tem permissão para isso",
+		return tgh.Reply{
+			Text: "você não tem permissão para isso",
 		}
 	}
 }
@@ -58,9 +57,8 @@ func (h Handler) RequireAdmin(next tgh.HandlerFunc) tgh.HandlerFunc {
 			return err
 		}
 		if !isAdmin {
-			return tg.SendMessageParams{
-				ReplyToMessageID: u.Message.MessageID,
-				Text:             "você não tem permissão para isso",
+			return tgh.Reply{
+				Text: "você não tem permissão para isso",
 			}
 		}
 

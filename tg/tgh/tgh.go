@@ -1,6 +1,7 @@
 package tgh
 
 import (
+	"errors"
 	"log"
 	"regexp"
 	"runtime/debug"
@@ -12,6 +13,15 @@ import (
 type HandlerFunc func(bot *tg.Bot, u tg.Update) error
 type Middleware = func(next HandlerFunc) HandlerFunc
 type CriteriaFunc func(bot *tg.Bot, u tg.Update) bool
+
+type Reply struct {
+	Text      string
+	ParseMode string
+}
+
+func (r Reply) Error() string {
+	return ""
+}
 
 var And = func(criterias ...CriteriaFunc) CriteriaFunc {
 	return func(bot *tg.Bot, u tg.Update) bool {
@@ -140,17 +150,15 @@ func (uh *UpdateController) Start() {
 				log.Print(update)
 				err := fn(uh.bot, update)
 
-				if params, ok := err.(tg.SendMessageParams); ok {
-					params.ChatID = update.Message.Chat.ID
-					params.ReplyToMessageID = update.Message.MessageID
-
-					_, err = uh.bot.SendMessage(params)
-					if err != nil {
-						log.Print(err)
-					}
-					return
+				var reply Reply
+				if errors.As(err, &reply) {
+					_, err = uh.bot.SendMessage(tg.SendMessageParams{
+						ChatID:                   update.Message.Chat.ID,
+						ReplyToMessageID:         update.Message.MessageID,
+						AllowSendingWithoutReply: true,
+						ParseMode:                reply.ParseMode,
+					})
 				}
-
 				if err != nil {
 					log.Print(err)
 				}

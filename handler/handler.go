@@ -57,13 +57,13 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if len(topics) == 0 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "cadê o(s) tópico(s)?",
 		}
 	}
 
 	if len(topics) > 3 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "no máximo 3 tópicos por vez",
 		}
 	}
@@ -76,7 +76,7 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 
 	if u.Message.ReplyToMessage != nil {
 		if u.Message.ReplyToMessage.From.IsBot {
-			return tg.SendMessageParams{
+			return tgh.Reply{
 				Text: "bot nao pode man",
 			}
 		}
@@ -106,9 +106,8 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 		enablesCreatingTopic, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "create_topics")
 		isAdmin, _ := h.isAdmin(bot, u)
 		if !exists && !isAdmin && !enablesCreatingTopic {
-			return tg.SendMessageParams{
-				ReplyToMessageID: u.Message.MessageID,
-				Text:             "você só tem permissão para se inscrever em tópicos existentes",
+			return tgh.Reply{
+				Text: "você só tem permissão para se inscrever em tópicos existentes",
 			}
 		}
 
@@ -120,7 +119,7 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 		err = h.DB.SaveUserTopic(userTopic)
 		if err != nil {
 			log.Print(err)
-			return tg.SendMessageParams{
+			return tgh.Reply{
 				Text: "falha ao salvar tópico " + topic,
 			}
 		}
@@ -130,7 +129,7 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 	for _, topic := range topics {
 		txt += fmt.Sprintf("- %s\n", topic)
 	}
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text: txt,
 	}
 }
@@ -163,12 +162,12 @@ func (h Handler) UnsubTopic(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if n == 0 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: fmt.Sprintf("usuário %s não está inscrito nesse tópico", user.Name()),
 		}
 	}
 
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text: "inscrição removida para " + user.Name(),
 	}
 }
@@ -205,7 +204,7 @@ func (h Handler) CallSubs(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: err.Error(),
 		}
 	}
@@ -223,21 +222,20 @@ func (h Handler) ListSubs(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		return tg.SendMessageParams{
-			ChatID: u.Message.Chat.ID,
-			Text:   err.Error(),
+		return tgh.Reply{
+			Text: err.Error(),
 		}
 	}
 
 	users, err := h.DB.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "falha ao listar usuários",
 		}
 	}
 
 	if len(users) == 0 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "não tem ninguém inscrito nesse tópico",
 		}
 	}
@@ -246,7 +244,7 @@ func (h Handler) ListSubs(bot *tg.Bot, u tg.Update) error {
 	for _, user := range users {
 		txt += fmt.Sprintf("\\- %s\n", user.Name())
 	}
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text:      txt,
 		ParseMode: "MarkdownV2",
 	}
@@ -257,13 +255,13 @@ func (h Handler) ListUserTopics(bot *tg.Bot, u tg.Update) error {
 
 	topics, err := h.DB.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
 	if err != nil {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "falha ao listar tópicos",
 		}
 	}
 
 	if len(topics) == 0 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "você não está inscrito em nenhum tópico",
 		}
 	}
@@ -273,7 +271,7 @@ func (h Handler) ListUserTopics(bot *tg.Bot, u tg.Update) error {
 		txt += fmt.Sprintf("(%02d)  %s\n", topic.Subscribers, topic.Topic)
 	}
 
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text: txt,
 	}
 }
@@ -284,13 +282,13 @@ func (h Handler) ListChatTopics(bot *tg.Bot, u tg.Update) error {
 	topics, err := h.DB.FindChatTopics(u.Message.Chat.ID)
 	if err != nil {
 		log.Print(err)
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "falha ao listar tópicos",
 		}
 	}
 
 	if len(topics) == 0 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "não existe nenhum tópico registrado nesse chat",
 		}
 	}
@@ -300,7 +298,7 @@ func (h Handler) ListChatTopics(bot *tg.Bot, u tg.Update) error {
 		txt += fmt.Sprintf("- (%02d)  %s\n", topic.Subscribers, topic.Topic)
 	}
 
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text: txt,
 	}
 }
@@ -308,7 +306,7 @@ func (h Handler) ListChatTopics(bot *tg.Bot, u tg.Update) error {
 func (h Handler) CountEvent(bot *tg.Bot, u tg.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	if len(fields) < 2 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "faltando nome do evento",
 		}
 	}
@@ -322,7 +320,7 @@ func (h Handler) CountEvent(bot *tg.Bot, u tg.Update) error {
 		event.MsgID = u.Message.ReplyToMessage.MessageID
 		event.Time = time.Unix(u.Message.ReplyToMessage.Date, 0)
 		if u.Message.From.ID != h.Config.GodID {
-			return tg.SendMessageParams{
+			return tgh.Reply{
 				Text: "sai maluco",
 			}
 		}
@@ -337,7 +335,7 @@ func (h Handler) CountEvent(bot *tg.Bot, u tg.Update) error {
 	}
 
 	if len(events) == 0 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: fmt.Sprintf("%s 0 vez(es)", event.Name),
 		}
 	}
@@ -352,7 +350,7 @@ func (h Handler) CountEvent(bot *tg.Bot, u tg.Update) error {
 		txt = fmt.Sprintf("%s %d vezes. última vez há %s", event.Name, len(events), relative)
 	}
 
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text: txt,
 	}
 }
@@ -360,19 +358,19 @@ func (h Handler) CountEvent(bot *tg.Bot, u tg.Update) error {
 func (h Handler) UncountEvent(bot *tg.Bot, u tg.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	if len(fields) == 1 {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "faltando nome do evento",
 		}
 	}
 
 	if u.Message.ReplyToMessage == nil {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "responda a mensagem que quer descontar",
 		}
 	}
 
 	if u.Message.From.ID != h.Config.GodID {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "já disse pra sair, maluco",
 		}
 	}
@@ -388,7 +386,7 @@ func (h Handler) UncountEvent(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text: "descontey",
 	}
 }
@@ -396,19 +394,19 @@ func (h Handler) UncountEvent(bot *tg.Bot, u tg.Update) error {
 func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "comando desativado. ative com /enable_audio",
 		}
 	}
 
 	if u.Message.ReplyToMessage == nil {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "responda ao audio que quer salvar",
 		}
 	}
 
 	if u.Message.ReplyToMessage.Voice == nil {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "tem que ser uma mensagem de voz",
 		}
 	}
@@ -422,7 +420,7 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	return tg.SendMessageParams{
+	return tgh.Reply{
 		Text: "áudio salvo",
 	}
 }
@@ -430,14 +428,14 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "comando desativado. ative com /enable_audio",
 		}
 	}
 
 	voice, err := h.DB.FindRandomVoice(u.Message.Chat.ID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return tg.SendMessageParams{
+		return tgh.Reply{
 			Text: "nenhum áudio salvo para mandar",
 		}
 	}
@@ -542,17 +540,15 @@ func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []oai.Message) err
 func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
 	if !enables {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "comando desativado. ative com /enable_ask",
+		return tgh.Reply{
+			Text: "comando desativado. ative com /enable_ask",
 		}
 	}
 
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
 	if len(chunks) != 2 {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "faltou a pergunta",
+		return tgh.Reply{
+			Text: "faltou a pergunta",
 		}
 	}
 
@@ -575,17 +571,15 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "comando desativado. ative com /enable_cask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do bot",
+		return tgh.Reply{
+			Text: "comando desativado. ative com /enable_cask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do bot",
 		}
 	}
 
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
 	if len(chunks) != 2 {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "faltou a pergunta",
+		return tgh.Reply{
+			Text: "faltou a pergunta",
 		}
 	}
 
@@ -607,9 +601,8 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 
 	prepMsgs := prepareMessagesForGPT(msgs)
 	if len(prepMsgs) == 0 {
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "ainda não há mensagens salvas para usar o /cask",
+		return tgh.Reply{
+			Text: "ainda não há mensagens salvas para usar o /cask",
 		}
 	}
 
@@ -685,9 +678,8 @@ func (h Handler) Enable(opt string) tgh.HandlerFunc {
 			return err
 		}
 
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "ativado",
+		return tgh.Reply{
+			Text: "ativado",
 		}
 	}
 }
@@ -699,9 +691,8 @@ func (h Handler) Disable(opt string) tgh.HandlerFunc {
 			return err
 		}
 
-		return tg.SendMessageParams{
-			ReplyToMessageID: u.Message.MessageID,
-			Text:             "desativado",
+		return tgh.Reply{
+			Text: "desativado",
 		}
 	}
 }
