@@ -52,12 +52,12 @@ func (err ErrRateLimit) Error() string {
 }
 
 func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, error) {
-	if params.WaitRateLimit {
-		c.mut.Lock()
-	} else if !c.mut.TryLock() {
-		secs := int(time.Until(c.rateLimitDeadline.Load().(time.Time)).Seconds())
-		return nil, ErrRateLimit(secs)
-	}
+	// if params.WaitRateLimit {
+	// 	c.mut.Lock()
+	// } else if !c.mut.TryLock() {
+	// 	secs := int(time.Until(c.rateLimitDeadline.Load().(time.Time)).Seconds())
+	// 	return nil, ErrRateLimit(secs)
+	// }
 
 	deadline := time.Now().Add(20 * time.Second)
 	c.rateLimitDeadline.Store(deadline)
@@ -105,6 +105,9 @@ func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, erro
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 429 {
+		return nil, ErrRateLimit(30)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, util.HTTPResponseError(resp)
 	}
