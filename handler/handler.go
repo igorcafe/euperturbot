@@ -557,8 +557,7 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 	msgs := []oai.Message{
 		{
 			Content: fmt.Sprintf(
-				"Meu nome é %s. Me responda com @%s.\n%s",
-				name,
+				"%s: %s",
 				name,
 				chunks[1],
 			),
