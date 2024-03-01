@@ -59,12 +59,12 @@ func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, erro
 	// 	return nil, ErrRateLimit(secs)
 	// }
 
-	deadline := time.Now().Add(20 * time.Second)
-	c.rateLimitDeadline.Store(deadline)
-	go func() {
-		time.Sleep(time.Until(deadline))
-		c.mut.Unlock()
-	}()
+	// deadline := time.Now().Add(20 * time.Second)
+	// c.rateLimitDeadline.Store(deadline)
+	// go func() {
+	// 	time.Sleep(time.Until(deadline))
+	// 	c.mut.Unlock()
+	// }()
 
 	if params.Model == "" {
 		params.Model = "gpt-3.5-turbo"
