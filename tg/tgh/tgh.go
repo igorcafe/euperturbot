@@ -156,6 +156,7 @@ func (uh *UpdateController) Start() {
 						ChatID:                   update.Message.Chat.ID,
 						ReplyToMessageID:         update.Message.MessageID,
 						AllowSendingWithoutReply: true,
+						Text:                     reply.Text,
 						ParseMode:                reply.ParseMode,
 					})
 				}
