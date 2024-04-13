@@ -14,6 +14,8 @@ func (fn RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func Test(t *testing.T) {
+	// Arrange
+
 	wantRole := "assistant"
 	wantContent := "hello there!"
 
@@ -33,6 +35,9 @@ func Test(t *testing.T) {
 	}
 
 	s := NewService("", &http)
+
+	// Act
+
 	cmp, err := s.Completion(&CompletionParams{
 		Messages: []Message{
 			{
@@ -41,6 +46,9 @@ func Test(t *testing.T) {
 			},
 		},
 	})
+
+	// Assert
+
 	if err != nil {
 		t.Fatal(err)
 	}
