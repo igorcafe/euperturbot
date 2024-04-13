@@ -18,7 +18,7 @@ import (
 
 	"github.com/igoracmelo/euperturbot/config"
 	"github.com/igoracmelo/euperturbot/db"
-	"github.com/igoracmelo/euperturbot/oai"
+	"github.com/igoracmelo/euperturbot/openai"
 	"github.com/igoracmelo/euperturbot/tg"
 	"github.com/igoracmelo/euperturbot/tg/tgh"
 	"github.com/igoracmelo/euperturbot/util"
@@ -26,7 +26,7 @@ import (
 
 type Handler struct {
 	DB      *db.DB
-	OAI     *oai.Client
+	OpenAI  openai.Service
 	BotInfo *tg.User
 	Config  *config.Config
 }
@@ -450,7 +450,7 @@ func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []oai.Message) error {
+func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []openai.Message) error {
 	msg, err := bot.SendMessage(tg.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
@@ -460,11 +460,11 @@ func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []oai.Message) err
 		return err
 	}
 
-	resp, err := h.OAI.Completion(&oai.CompletionParams{
+	resp, err := h.OpenAI.Completion(&openai.CompletionParams{
 		Messages: msgs,
 	})
 
-	var rateErr oai.ErrRateLimit
+	var rateErr openai.ErrRateLimit
 	if errors.As(err, &rateErr) {
 		_, err = bot.EditMessageText(tg.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
@@ -554,7 +554,7 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 
 	name := username(u.Message.From)
 
-	msgs := []oai.Message{
+	msgs := []openai.Message{
 		{
 			Content: fmt.Sprintf(
 				"%s: %s",
@@ -605,7 +605,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		}
 	}
 
-	prompts := []oai.Message{
+	prompts := []openai.Message{
 		{
 			Content: fmt.Sprintf(
 				"Mensagens recentes do chat %s para voce se contextualizar, no formato '<usuario>: <texto>'\n\n%s",
@@ -633,11 +633,11 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	resp, err := h.OAI.Completion(&oai.CompletionParams{
+	resp, err := h.OpenAI.Completion(&openai.CompletionParams{
 		Messages:    prompts,
 		Temperature: 0.5,
 	})
-	var rateErr oai.ErrRateLimit
+	var rateErr openai.ErrRateLimit
 	if errors.As(err, &rateErr) {
 		_, err = bot.EditMessageText(tg.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
@@ -935,21 +935,21 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 			return err
 		}
 
-		oaiMsgs := []oai.Message{}
+		oaiMsgs := []openai.Message{}
 		for _, msg := range msgs {
 			role := "user"
 			if msg.UserID == h.Config.GPTUserID {
 				role = "assistant"
 			}
 
-			oaiMsgs = append(oaiMsgs, oai.Message{
+			oaiMsgs = append(oaiMsgs, openai.Message{
 				Role:    role,
 				Content: msg.Text,
 			})
 		}
 
 		name := username(u.Message.From)
-		oaiMsgs = append(oaiMsgs, oai.Message{
+		oaiMsgs = append(oaiMsgs, openai.Message{
 			Content: fmt.Sprintf(
 				"Meu nome é %s. Responda a seguinte mensagem se referindo a mim como @%s.\n%s",
 				name,
@@ -1013,10 +1013,10 @@ func (h Handler) InlineQuery(bot *tg.Bot, u tg.Update) error {
 
 	// TODO: debounce by u.InlineQuery.ID
 	util.Debounce(5*time.Second, func() {
-		var resp *oai.CompletionResponse
-		resp, err = h.OAI.Completion(&oai.CompletionParams{
+		var resp *openai.CompletionResponse
+		resp, err = h.OpenAI.Completion(&openai.CompletionParams{
 			WaitRateLimit: true,
-			Messages: []oai.Message{
+			Messages: []openai.Message{
 				{
 					Content: u.InlineQuery.Query,
 				},

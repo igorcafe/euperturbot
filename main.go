@@ -7,7 +7,7 @@ import (
 	"github.com/igoracmelo/euperturbot/config"
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/handler"
-	"github.com/igoracmelo/euperturbot/oai"
+	"github.com/igoracmelo/euperturbot/openai"
 	"github.com/igoracmelo/euperturbot/tg"
 	"github.com/igoracmelo/euperturbot/tg/tgh"
 	_ "modernc.org/sqlite"
@@ -34,7 +34,7 @@ func main() {
 		panic(err)
 	}
 
-	oai := oai.NewClient(conf.OpenAIKey)
+	oai := openai.NewService(conf.OpenAIKey)
 
 	bot := tg.NewBot(conf.BotToken)
 	if err != nil {
@@ -48,7 +48,7 @@ func main() {
 
 	h := handler.Handler{
 		DB:      db,
-		OAI:     oai,
+		OpenAI:  oai,
 		BotInfo: botInfo,
 		Config:  &conf,
 	}

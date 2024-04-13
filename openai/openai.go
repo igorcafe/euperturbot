@@ -1,4 +1,4 @@
-package oai
+package openai
 
 import (
 	"bytes"
@@ -11,17 +11,21 @@ import (
 	"github.com/igoracmelo/euperturbot/util"
 )
 
-type Client struct {
+type Service interface {
+	Completion(params *CompletionParams) (*CompletionResponse, error)
+}
+
+type service struct {
 	key               string
 	http              http.Client
 	mut               *sync.Mutex
 	rateLimitDeadline *atomic.Value
 }
 
-func NewClient(key string) *Client {
+func NewService(key string) Service {
 	deadline := &atomic.Value{}
 	deadline.Store(time.Time{})
-	return &Client{
+	return &service{
 		key:               key,
 		mut:               new(sync.Mutex),
 		rateLimitDeadline: deadline,
@@ -51,7 +55,7 @@ func (err ErrRateLimit) Error() string {
 	return "rate limit"
 }
 
-func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, error) {
+func (s *service) Completion(params *CompletionParams) (*CompletionResponse, error) {
 	// if params.WaitRateLimit {
 	// 	c.mut.Lock()
 	// } else if !c.mut.TryLock() {
@@ -97,9 +101,9 @@ func (c *Client) Completion(params *CompletionParams) (*CompletionResponse, erro
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.key)
+	req.Header.Set("Authorization", "Bearer "+s.key)
 
-	resp, err := c.http.Do(req)
+	resp, err := s.http.Do(req)
 	if err != nil {
 		return nil, err
 	}
