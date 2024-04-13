@@ -1,4 +1,4 @@
-package tg
+package bot
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 	"github.com/igoracmelo/euperturbot/util"
 )
 
-type Bot interface {
+type Service interface {
 	Username() string
 	GetMe() (*User, error)
 	GetChatMember(params GetChatMemberParams) (*ChatMember, error)
@@ -30,7 +30,7 @@ type Bot interface {
 	SendDocument(params SendDocumentParams) error
 }
 
-type bot struct {
+type service struct {
 	retry    util.Retry
 	token    string
 	username string
@@ -38,10 +38,10 @@ type bot struct {
 	client   http.Client
 }
 
-var _ Bot = &bot{}
+var _ Service = &service{}
 
-func NewBot(token string) Bot {
-	return &bot{
+func NewService(token string) Service {
+	return &service{
 		token:   token,
 		baseURL: "https://api.telegram.org/bot",
 		retry: util.Retry{
@@ -54,7 +54,7 @@ func NewBot(token string) Bot {
 	}
 }
 
-func apiJSONRequest[T any](bot *bot, path string, data any) (res Result[T], err error) {
+func apiJSONRequest[T any](bot *service, path string, data any) (res Result[T], err error) {
 	u := bot.baseURL + bot.token + "/" + path
 
 	var reqBody []byte
@@ -101,27 +101,27 @@ func apiJSONRequest[T any](bot *bot, path string, data any) (res Result[T], err 
 	return
 }
 
-func (bot *bot) Username() string {
-	return bot.username
+func (s *service) Username() string {
+	return s.username
 }
 
-func (bot *bot) GetMe() (*User, error) {
-	res, err := apiJSONRequest[User](bot, "getMe", nil)
-	bot.username = res.Result.Username
+func (s *service) GetMe() (*User, error) {
+	res, err := apiJSONRequest[User](s, "getMe", nil)
+	s.username = res.Result.Username
 	return &res.Result, err
 }
 
-func (bot *bot) GetChatMember(params GetChatMemberParams) (*ChatMember, error) {
-	res, err := apiJSONRequest[ChatMember](bot, "getMe", params)
+func (s *service) GetChatMember(params GetChatMemberParams) (*ChatMember, error) {
+	res, err := apiJSONRequest[ChatMember](s, "getMe", params)
 	return &res.Result, err
 }
 
-func (bot *bot) GetUpdates(params GetUpdatesParams) ([]Update, error) {
-	res, err := apiJSONRequest[[]Update](bot, "getUpdates", params)
+func (s *service) GetUpdates(params GetUpdatesParams) ([]Update, error) {
+	res, err := apiJSONRequest[[]Update](s, "getUpdates", params)
 	return res.Result, err
 }
 
-func (bot *bot) GetUpdatesChannel() chan Update {
+func (s *service) GetUpdatesChannel() chan Update {
 	ch := make(chan Update)
 	go func() {
 		updateID := 0
@@ -131,9 +131,9 @@ func (bot *bot) GetUpdatesChannel() chan Update {
 				Timeout:        5,
 				AllowedUpdates: []string{"message", "poll", "poll_answer", "callback_query", "inline_query"},
 			}
-			updates, err := bot.GetUpdates(params)
+			updates, err := s.GetUpdates(params)
 			if err != nil {
-				log.Print(bot.hideToken(err.Error()))
+				log.Print(s.hideToken(err.Error()))
 			}
 			for _, u := range updates {
 				updateID = u.UpdateID + 1
@@ -145,32 +145,32 @@ func (bot *bot) GetUpdatesChannel() chan Update {
 	return ch
 }
 
-func (bot *bot) SendVoice(params SendVoiceParams) (*Message, error) {
-	res, err := apiJSONRequest[Message](bot, "sendVoice", params)
+func (s *service) SendVoice(params SendVoiceParams) (*Message, error) {
+	res, err := apiJSONRequest[Message](s, "sendVoice", params)
 	return &res.Result, err
 }
 
-func (bot *bot) SendPoll(params SendPollParams) (*Message, error) {
-	res, err := apiJSONRequest[Message](bot, "sendPoll", params)
+func (s *service) SendPoll(params SendPollParams) (*Message, error) {
+	res, err := apiJSONRequest[Message](s, "sendPoll", params)
 	return &res.Result, err
 }
 
-func (bot *bot) SendMessage(params SendMessageParams) (*Message, error) {
-	res, err := apiJSONRequest[Message](bot, "sendMessage", params)
+func (s *service) SendMessage(params SendMessageParams) (*Message, error) {
+	res, err := apiJSONRequest[Message](s, "sendMessage", params)
 	return &res.Result, err
 }
 
-func (bot *bot) EditMessageText(params EditMessageTextParams) (*Message, error) {
-	res, err := apiJSONRequest[Message](bot, "editMessageText", params)
+func (s *service) EditMessageText(params EditMessageTextParams) (*Message, error) {
+	res, err := apiJSONRequest[Message](s, "editMessageText", params)
 	return &res.Result, err
 }
 
-func (bot *bot) AnswerInlineQuery(params AnswerInlineQueryParams) error {
-	_, err := apiJSONRequest[bool](bot, "answerInlineQuery", params)
+func (s *service) AnswerInlineQuery(params AnswerInlineQueryParams) error {
+	_, err := apiJSONRequest[bool](s, "answerInlineQuery", params)
 	return err
 }
 
-func (bot *bot) SendDocument(params SendDocumentParams) error {
+func (s *service) SendDocument(params SendDocumentParams) error {
 	f, err := os.Open(params.FileName)
 	if err != nil {
 		return err
@@ -200,7 +200,7 @@ func (bot *bot) SendDocument(params SendDocumentParams) error {
 		return err
 	}
 
-	u := bot.baseURL + bot.token + "/sendDocument"
+	u := s.baseURL + s.token + "/sendDocument"
 	req, err := http.NewRequest("POST", u, body)
 	if err != nil {
 		return err
@@ -208,7 +208,7 @@ func (bot *bot) SendDocument(params SendDocumentParams) error {
 
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 
-	resp, err := bot.client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -223,13 +223,13 @@ func (bot *bot) SendDocument(params SendDocumentParams) error {
 	return nil
 }
 
-func (bot *bot) hideToken(s string) string {
-	return strings.ReplaceAll(s, bot.token, "<token>")
+func (s *service) hideToken(str string) string {
+	return strings.ReplaceAll(str, s.token, "<token>")
 }
 
-func (bot *bot) respError(resp *http.Response, reqBody []byte, respBody []byte) error {
+func (s *service) respError(resp *http.Response, reqBody []byte, respBody []byte) error {
 	err := BotError{}
-	err.Path = bot.hideToken(resp.Request.URL.String())
+	err.Path = s.hideToken(resp.Request.URL.String())
 	err.Status = resp.StatusCode
 	err.RequestBody = reqBody
 	err.ResponseBody = respBody

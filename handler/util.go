@@ -7,18 +7,18 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/igoracmelo/euperturbot/bot"
+	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/igoracmelo/euperturbot/db"
-	"github.com/igoracmelo/euperturbot/tg"
-	"github.com/igoracmelo/euperturbot/tg/tgh"
 )
 
-func (h Handler) callSubs(bot tg.Bot, u tg.Update, topic string, quiet bool) error {
+func (h Handler) callSubs(s bot.Service, u bot.Update, topic string, quiet bool) error {
 	users, err := h.DB.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		if quiet {
 			return err
 		}
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "falha ao listar usuários",
 		}
 	}
@@ -27,7 +27,7 @@ func (h Handler) callSubs(bot tg.Bot, u tg.Update, topic string, quiet bool) err
 		if quiet {
 			return nil
 		}
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "não tem ninguém inscrito nesse tópico",
 		}
 	}
@@ -46,18 +46,18 @@ func (h Handler) callSubs(bot tg.Bot, u tg.Update, topic string, quiet bool) err
 	up := "👍 0"
 	down := "👎 0"
 
-	msg, err := bot.SendMessage(tg.SendMessageParams{
+	msg, err := s.SendMessage(bot.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		Text:             txt,
 		ParseMode:        "MarkdownV2",
 		ReplyToMessageID: u.Message.MessageID,
-		ReplyMarkup: &tg.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tg.InlineKeyboardButton{{
-				tg.InlineKeyboardButton{
+		ReplyMarkup: &bot.InlineKeyboardMarkup{
+			InlineKeyboard: [][]bot.InlineKeyboardButton{{
+				bot.InlineKeyboardButton{
 					Text:         up,
 					CallbackData: "0",
 				},
-				tg.InlineKeyboardButton{
+				bot.InlineKeyboardButton{
 					Text:         down,
 					CallbackData: "1",
 				},
@@ -115,7 +115,7 @@ func sanitizeUsername(name string) string {
 	return strings.TrimSpace(s)
 }
 
-func username(user *tg.User) string {
+func username(user *bot.User) string {
 	if user == nil {
 		return ""
 	}
@@ -142,7 +142,7 @@ func validateTopic(topic string) error {
 	return nil
 }
 
-func (h Handler) isAdmin(bot tg.Bot, u tg.Update) (bool, error) {
+func (h Handler) isAdmin(s bot.Service, u bot.Update) (bool, error) {
 	if u.Message.Chat.Type == "private" {
 		return true, nil
 	}
@@ -151,7 +151,7 @@ func (h Handler) isAdmin(bot tg.Bot, u tg.Update) (bool, error) {
 		return true, nil
 	}
 
-	member, err := bot.GetChatMember(tg.GetChatMemberParams{
+	member, err := s.GetChatMember(bot.GetChatMemberParams{
 		ChatID: u.Message.Chat.ID,
 		UserID: u.Message.From.ID,
 	})

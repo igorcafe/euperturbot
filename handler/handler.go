@@ -16,22 +16,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/igoracmelo/euperturbot/bot"
+	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/igoracmelo/euperturbot/config"
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/openai"
-	"github.com/igoracmelo/euperturbot/tg"
-	"github.com/igoracmelo/euperturbot/tg/tgh"
 	"github.com/igoracmelo/euperturbot/util"
 )
 
 type Handler struct {
 	DB      *db.DB
 	OpenAI  openai.Service
-	BotInfo *tg.User
+	BotInfo *bot.User
 	Config  *config.Config
 }
 
-func (h Handler) Start(bot tg.Bot, u tg.Update) error {
+func (h Handler) Start(s bot.Service, u bot.Update) error {
 	err := h.DB.SaveChat(context.TODO(), db.Chat{
 		ID:    u.Message.Chat.ID,
 		Title: u.Message.Chat.Name(),
@@ -40,7 +40,7 @@ func (h Handler) Start(bot tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	_, err = bot.SendMessage(tg.SendMessageParams{
+	_, err = s.SendMessage(bot.SendMessageParams{
 		ChatID:                   u.Message.Chat.ID,
 		ReplyToMessageID:         u.Message.MessageID,
 		Text:                     "vamo que vamo",
@@ -49,7 +49,7 @@ func (h Handler) Start(bot tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) SubToTopic(bot tg.Bot, u tg.Update) error {
+func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topics := []string{}
 	if len(fields) > 1 {
@@ -57,13 +57,13 @@ func (h Handler) SubToTopic(bot tg.Bot, u tg.Update) error {
 	}
 
 	if len(topics) == 0 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "cadê o(s) tópico(s)?",
 		}
 	}
 
 	if len(topics) > 3 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "no máximo 3 tópicos por vez",
 		}
 	}
@@ -76,8 +76,8 @@ func (h Handler) SubToTopic(bot tg.Bot, u tg.Update) error {
 
 	if u.Message.ReplyToMessage != nil {
 		if u.Message.ReplyToMessage.From.IsBot {
-			return tgh.Reply{
-				Text: "bot nao pode man",
+			return bh.Reply{
+				Text: "s nao pode man",
 			}
 		}
 		user.ID = u.Message.ReplyToMessage.From.ID
@@ -104,9 +104,9 @@ func (h Handler) SubToTopic(bot tg.Bot, u tg.Update) error {
 		}
 
 		enablesCreatingTopic, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "create_topics")
-		isAdmin, _ := h.isAdmin(bot, u)
+		isAdmin, _ := h.isAdmin(s, u)
 		if !exists && !isAdmin && !enablesCreatingTopic {
-			return tgh.Reply{
+			return bh.Reply{
 				Text: "você só tem permissão para se inscrever em tópicos existentes",
 			}
 		}
@@ -119,7 +119,7 @@ func (h Handler) SubToTopic(bot tg.Bot, u tg.Update) error {
 		err = h.DB.SaveUserTopic(userTopic)
 		if err != nil {
 			log.Print(err)
-			return tgh.Reply{
+			return bh.Reply{
 				Text: "falha ao salvar tópico " + topic,
 			}
 		}
@@ -129,12 +129,12 @@ func (h Handler) SubToTopic(bot tg.Bot, u tg.Update) error {
 	for _, topic := range topics {
 		txt += fmt.Sprintf("- %s\n", topic)
 	}
-	return tgh.Reply{
+	return bh.Reply{
 		Text: txt,
 	}
 }
 
-func (h Handler) UnsubTopic(bot tg.Bot, u tg.Update) error {
+func (h Handler) UnsubTopic(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -162,17 +162,17 @@ func (h Handler) UnsubTopic(bot tg.Bot, u tg.Update) error {
 	}
 
 	if n == 0 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: fmt.Sprintf("usuário %s não está inscrito nesse tópico", user.Name()),
 		}
 	}
 
-	return tgh.Reply{
+	return bh.Reply{
 		Text: "inscrição removida para " + user.Name(),
 	}
 }
 
-func (h Handler) CreatePoll(bot tg.Bot, u tg.Update) error {
+func (h Handler) CreatePoll(s bot.Service, u bot.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -185,7 +185,7 @@ func (h Handler) CreatePoll(bot tg.Bot, u tg.Update) error {
 		return fmt.Errorf("cade o titulo joe")
 	}
 
-	_, err := bot.SendPoll(tg.SendPollParams{
+	_, err := s.SendPoll(bot.SendPollParams{
 		ChatID:      u.Message.Chat.ID,
 		Question:    question,
 		Options:     []string{"👍🏿", "👎🏻"},
@@ -194,7 +194,7 @@ func (h Handler) CreatePoll(bot tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) CallSubs(bot tg.Bot, u tg.Update) error {
+func (h Handler) CallSubs(s bot.Service, u bot.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -204,15 +204,15 @@ func (h Handler) CallSubs(bot tg.Bot, u tg.Update) error {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: err.Error(),
 		}
 	}
 
-	return h.callSubs(bot, u, topic, false)
+	return h.callSubs(s, u, topic, false)
 }
 
-func (h Handler) ListSubs(bot tg.Bot, u tg.Update) error {
+func (h Handler) ListSubs(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -222,20 +222,20 @@ func (h Handler) ListSubs(bot tg.Bot, u tg.Update) error {
 	}
 
 	if err := validateTopic(topic); err != nil {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: err.Error(),
 		}
 	}
 
 	users, err := h.DB.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "falha ao listar usuários",
 		}
 	}
 
 	if len(users) == 0 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "não tem ninguém inscrito nesse tópico",
 		}
 	}
@@ -244,24 +244,24 @@ func (h Handler) ListSubs(bot tg.Bot, u tg.Update) error {
 	for _, user := range users {
 		txt += fmt.Sprintf("\\- %s\n", user.Name())
 	}
-	return tgh.Reply{
+	return bh.Reply{
 		Text:      txt,
 		ParseMode: "MarkdownV2",
 	}
 }
 
-func (h Handler) ListUserTopics(bot tg.Bot, u tg.Update) error {
+func (h Handler) ListUserTopics(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := h.DB.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
 	if err != nil {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "falha ao listar tópicos",
 		}
 	}
 
 	if len(topics) == 0 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "você não está inscrito em nenhum tópico",
 		}
 	}
@@ -271,24 +271,24 @@ func (h Handler) ListUserTopics(bot tg.Bot, u tg.Update) error {
 		txt += fmt.Sprintf("(%02d)  %s\n", topic.Subscribers, topic.Topic)
 	}
 
-	return tgh.Reply{
+	return bh.Reply{
 		Text: txt,
 	}
 }
 
-func (h Handler) ListChatTopics(bot tg.Bot, u tg.Update) error {
+func (h Handler) ListChatTopics(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := h.DB.FindChatTopics(u.Message.Chat.ID)
 	if err != nil {
 		log.Print(err)
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "falha ao listar tópicos",
 		}
 	}
 
 	if len(topics) == 0 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "não existe nenhum tópico registrado nesse chat",
 		}
 	}
@@ -298,27 +298,27 @@ func (h Handler) ListChatTopics(bot tg.Bot, u tg.Update) error {
 		txt += fmt.Sprintf("- (%02d)  %s\n", topic.Subscribers, topic.Topic)
 	}
 
-	return tgh.Reply{
+	return bh.Reply{
 		Text: txt,
 	}
 }
 
-func (h Handler) SaveAudio(bot tg.Bot, u tg.Update) error {
+func (h Handler) SaveAudio(s bot.Service, u bot.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "comando desativado. ative com /enable_audio",
 		}
 	}
 
 	if u.Message.ReplyToMessage == nil {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "responda ao audio que quer salvar",
 		}
 	}
 
 	if u.Message.ReplyToMessage.Voice == nil {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "tem que ser uma mensagem de voz",
 		}
 	}
@@ -332,29 +332,29 @@ func (h Handler) SaveAudio(bot tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	return tgh.Reply{
+	return bh.Reply{
 		Text: "áudio salvo",
 	}
 }
 
-func (h Handler) SendRandomAudio(bot tg.Bot, u tg.Update) error {
+func (h Handler) SendRandomAudio(s bot.Service, u bot.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "comando desativado. ative com /enable_audio",
 		}
 	}
 
 	voice, err := h.DB.FindRandomVoice(u.Message.Chat.ID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "nenhum áudio salvo para mandar",
 		}
 	}
 	if err != nil {
 		return err
 	}
-	_, err = bot.SendVoice(tg.SendVoiceParams{
+	_, err = s.SendVoice(bot.SendVoiceParams{
 		ChatID:           u.Message.Chat.ID,
 		Voice:            voice.FileID,
 		ReplyToMessageID: u.Message.MessageID,
@@ -362,8 +362,8 @@ func (h Handler) SendRandomAudio(bot tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) gptCompletion(bot tg.Bot, u tg.Update, msgs []openai.Message) error {
-	msg, err := bot.SendMessage(tg.SendMessageParams{
+func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Message) error {
+	msg, err := s.SendMessage(bot.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
 		Text:             "Carregando...",
@@ -378,7 +378,7 @@ func (h Handler) gptCompletion(bot tg.Bot, u tg.Update, msgs []openai.Message) e
 
 	var rateErr openai.ErrRateLimit
 	if errors.As(err, &rateErr) {
-		_, err = bot.EditMessageText(tg.EditMessageTextParams{
+		_, err = s.EditMessageText(bot.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
 			MessageID: msg.MessageID,
 			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
@@ -388,13 +388,13 @@ func (h Handler) gptCompletion(bot tg.Bot, u tg.Update, msgs []openai.Message) e
 			for time.Now().Before(deadline) {
 				time.Sleep(time.Second)
 				secs := int(time.Until(deadline).Seconds())
-				_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+				_, _ = s.EditMessageText(bot.EditMessageTextParams{
 					ChatID:    u.Message.Chat.ID,
 					MessageID: msg.MessageID,
 					Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", secs),
 				})
 			}
-			_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+			_, _ = s.EditMessageText(bot.EditMessageTextParams{
 				ChatID:    u.Message.Chat.ID,
 				MessageID: msg.MessageID,
 				Text:      "manda de novo ae",
@@ -403,7 +403,7 @@ func (h Handler) gptCompletion(bot tg.Bot, u tg.Update, msgs []openai.Message) e
 		return err
 	}
 	if err != nil {
-		_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+		_, _ = s.EditMessageText(bot.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
 			MessageID: msg.MessageID,
 			Text:      "vish deu ruim",
@@ -411,7 +411,7 @@ func (h Handler) gptCompletion(bot tg.Bot, u tg.Update, msgs []openai.Message) e
 		return err
 	}
 
-	msg, err = bot.EditMessageText(tg.EditMessageTextParams{
+	msg, err = s.EditMessageText(bot.EditMessageTextParams{
 		ChatID:    u.Message.Chat.ID,
 		MessageID: msg.MessageID,
 		Text:      resp.Choices[0].Message.Content,
@@ -449,17 +449,17 @@ func (h Handler) gptCompletion(bot tg.Bot, u tg.Update, msgs []openai.Message) e
 	return err
 }
 
-func (h Handler) GPTCompletion(bot tg.Bot, u tg.Update) error {
+func (h Handler) GPTCompletion(s bot.Service, u bot.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
 	if !enables {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "comando desativado. ative com /enable_ask",
 		}
 	}
 
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
 	if len(chunks) != 2 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "faltou a pergunta",
 		}
 	}
@@ -476,20 +476,20 @@ func (h Handler) GPTCompletion(bot tg.Bot, u tg.Update) error {
 		},
 	}
 
-	return h.gptCompletion(bot, u, msgs)
+	return h.gptCompletion(s, u, msgs)
 }
 
-func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
+func (h Handler) GPTChatCompletion(s bot.Service, u bot.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
-		return tgh.Reply{
-			Text: "comando desativado. ative com /enable_cask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do bot",
+		return bh.Reply{
+			Text: "comando desativado. ative com /enable_cask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do s",
 		}
 	}
 
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
 	if len(chunks) != 2 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "faltou a pergunta",
 		}
 	}
@@ -512,7 +512,7 @@ func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
 
 	prepMsgs := prepareMessagesForGPT(msgs)
 	if len(prepMsgs) == 0 {
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "ainda não há mensagens salvas para usar o /cask",
 		}
 	}
@@ -536,7 +536,7 @@ func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
 		},
 	}
 
-	msg, err := bot.SendMessage(tg.SendMessageParams{
+	msg, err := s.SendMessage(bot.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
 		Text:             fmt.Sprintf("Carregando... (usando últimas %d mensagens de contexto)", len(prepMsgs)),
@@ -551,7 +551,7 @@ func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
 	})
 	var rateErr openai.ErrRateLimit
 	if errors.As(err, &rateErr) {
-		_, err = bot.EditMessageText(tg.EditMessageTextParams{
+		_, err = s.EditMessageText(bot.EditMessageTextParams{
 			ChatID:    u.Message.Chat.ID,
 			MessageID: msg.MessageID,
 			Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", int(rateErr)),
@@ -561,7 +561,7 @@ func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
 			for time.Now().Before(deadline) {
 				time.Sleep(time.Second)
 				secs := int(time.Until(deadline).Seconds())
-				_, _ = bot.EditMessageText(tg.EditMessageTextParams{
+				_, _ = s.EditMessageText(bot.EditMessageTextParams{
 					ChatID:    u.Message.Chat.ID,
 					MessageID: msg.MessageID,
 					Text:      fmt.Sprintf("ignorated kk rate limit (%ds)", secs),
@@ -574,7 +574,7 @@ func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
 		return err
 	}
 
-	_, err = bot.EditMessageText(tg.EditMessageTextParams{
+	_, err = s.EditMessageText(bot.EditMessageTextParams{
 		ChatID:    u.Message.Chat.ID,
 		MessageID: msg.MessageID,
 		Text:      resp.Choices[0].Message.Content,
@@ -582,41 +582,41 @@ func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) Enable(opt string) tgh.HandlerFunc {
-	return func(bot tg.Bot, u tg.Update) error {
+func (h Handler) Enable(opt string) bh.HandlerFunc {
+	return func(s bot.Service, u bot.Update) error {
 		err := h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
 			return err
 		}
 
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "ativado",
 		}
 	}
 }
 
-func (h Handler) Disable(opt string) tgh.HandlerFunc {
-	return func(bot tg.Bot, u tg.Update) error {
+func (h Handler) Disable(opt string) bh.HandlerFunc {
+	return func(s bot.Service, u bot.Update) error {
 		err := h.DB.ChatDisable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
 			return err
 		}
 
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "desativado",
 		}
 	}
 }
 
-func (h Handler) Backup(bot tg.Bot, u tg.Update) error {
-	return bot.SendDocument(tg.SendDocumentParams{
+func (h Handler) Backup(s bot.Service, u bot.Update) error {
+	return s.SendDocument(bot.SendDocumentParams{
 		ChatID:   h.Config.GodID,
 		FileName: "./euperturbot.db",
 	})
 }
 
 // WIP
-func (h Handler) Xonotic(bot tg.Bot, u tg.Update) error {
+func (h Handler) Xonotic(s bot.Service, u bot.Update) error {
 	type XonoticResponse []struct {
 		Status        string
 		Name          string
@@ -664,7 +664,7 @@ func (h Handler) Xonotic(bot tg.Bot, u tg.Update) error {
 		players,
 	)
 
-	_, err = bot.SendMessage(tg.SendMessageParams{
+	_, err = s.SendMessage(bot.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
 		Text:             txt,
@@ -673,7 +673,7 @@ func (h Handler) Xonotic(bot tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) CallbackQuery(bot tg.Bot, u tg.Update) error {
+func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	var err error
 
 	poll, err := h.DB.FindPollByMessage(u.CallbackQuery.Message.MessageID)
@@ -775,18 +775,18 @@ func (h Handler) CallbackQuery(bot tg.Bot, u tg.Update) error {
 	up := "👍 " + fmt.Sprint(positiveCount)
 	down := "👎 " + fmt.Sprint(negativeCount)
 
-	_, err = bot.EditMessageText(tg.EditMessageTextParams{
+	_, err = s.EditMessageText(bot.EditMessageTextParams{
 		ChatID:    poll.ChatID,
 		MessageID: poll.ResultMessageID,
 		Text:      txt,
 		ParseMode: "MarkdownV2",
-		ReplyMarkup: &tg.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tg.InlineKeyboardButton{{
-				tg.InlineKeyboardButton{
+		ReplyMarkup: &bot.InlineKeyboardMarkup{
+			InlineKeyboard: [][]bot.InlineKeyboardButton{{
+				bot.InlineKeyboardButton{
 					Text:         up,
 					CallbackData: "0",
 				},
-				tg.InlineKeyboardButton{
+				bot.InlineKeyboardButton{
 					Text:         down,
 					CallbackData: "1",
 				},
@@ -796,7 +796,7 @@ func (h Handler) CallbackQuery(bot tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) Text(bot tg.Bot, u tg.Update) error {
+func (h Handler) Text(s bot.Service, u bot.Update) error {
 	// sed commands
 	re := regexp.MustCompile(`^(s|y)\/.*\/`)
 	if re.MatchString(u.Message.Text) && u.Message.ReplyToMessage != nil {
@@ -815,7 +815,7 @@ func (h Handler) Text(bot tg.Bot, u tg.Update) error {
 			return err
 		}
 
-		_, err = bot.SendMessage(tg.SendMessageParams{
+		_, err = s.SendMessage(bot.SendMessageParams{
 			ChatID:           u.Message.Chat.ID,
 			ReplyToMessageID: u.Message.ReplyToMessage.MessageID,
 			Text:             buf.String(),
@@ -870,7 +870,7 @@ func (h Handler) Text(bot tg.Bot, u tg.Update) error {
 			),
 		})
 
-		return h.gptCompletion(bot, u, oaiMsgs)
+		return h.gptCompletion(s, u, oaiMsgs)
 	}
 
 	// call subscribers
@@ -879,7 +879,7 @@ func (h Handler) Text(bot tg.Bot, u tg.Update) error {
 		if err := validateTopic(txt); err != nil {
 			return nil
 		}
-		return h.callSubs(bot, u, txt, true)
+		return h.callSubs(s, u, txt, true)
 	}
 
 	// save message
@@ -920,7 +920,7 @@ func (h Handler) Text(bot tg.Bot, u tg.Update) error {
 }
 
 // TODO:
-func (h Handler) InlineQuery(bot tg.Bot, u tg.Update) error {
+func (h Handler) InlineQuery(s bot.Service, u bot.Update) error {
 	var err error
 
 	// TODO: debounce by u.InlineQuery.ID
@@ -936,14 +936,14 @@ func (h Handler) InlineQuery(bot tg.Bot, u tg.Update) error {
 		})
 
 		if err != nil {
-			_ = bot.AnswerInlineQuery(tg.AnswerInlineQueryParams{
+			_ = s.AnswerInlineQuery(bot.AnswerInlineQueryParams{
 				InlineQueryID: u.InlineQuery.ID,
-				Results: []tg.InlineQueryResult{
+				Results: []bot.InlineQueryResult{
 					{
 						Type:  "article",
 						ID:    "1",
 						Title: "Erro ao perguntar ao ChatGPT",
-						InputMessageContent: tg.InputMessageContent{
+						InputMessageContent: bot.InputMessageContent{
 							MessageText: "",
 						},
 					},
@@ -957,14 +957,14 @@ func (h Handler) InlineQuery(bot tg.Bot, u tg.Update) error {
 			title = title[:97] + "..."
 		}
 
-		err = bot.AnswerInlineQuery(tg.AnswerInlineQueryParams{
+		err = s.AnswerInlineQuery(bot.AnswerInlineQueryParams{
 			InlineQueryID: u.InlineQuery.ID,
-			Results: []tg.InlineQueryResult{
+			Results: []bot.InlineQueryResult{
 				{
 					Type:  "article",
 					ID:    fmt.Sprintf("%016X", rand.Int63()),
 					Title: title,
-					InputMessageContent: tg.InputMessageContent{
+					InputMessageContent: bot.InputMessageContent{
 						MessageText: resp.Choices[0].Message.Content,
 					},
 				},

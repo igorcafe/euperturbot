@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
+	"github.com/igoracmelo/euperturbot/bot"
+	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/igoracmelo/euperturbot/db"
-	"github.com/igoracmelo/euperturbot/tg"
-	"github.com/igoracmelo/euperturbot/tg/tgh"
 )
 
-func (h Handler) EnsureStarted() tgh.Middleware {
-	return func(next tgh.HandlerFunc) tgh.HandlerFunc {
-		return func(bot tg.Bot, u tg.Update) error {
+func (h Handler) EnsureStarted() bh.Middleware {
+	return func(next bh.HandlerFunc) bh.HandlerFunc {
+		return func(s bot.Service, u bot.Update) error {
 			if u.Message.Text == "/start" {
-				return next(bot, u)
+				return next(s, u)
 			}
 
 			_, err := h.DB.FindChat(context.TODO(), u.Message.Chat.ID)
@@ -22,46 +22,46 @@ func (h Handler) EnsureStarted() tgh.Middleware {
 				return nil
 			}
 
-			return next(bot, u)
+			return next(s, u)
 		}
 	}
 }
 
-func (h Handler) IgnoreForwardedCommand() tgh.Middleware {
-	return func(next tgh.HandlerFunc) tgh.HandlerFunc {
-		return func(bot tg.Bot, u tg.Update) error {
+func (h Handler) IgnoreForwardedCommand() bh.Middleware {
+	return func(next bh.HandlerFunc) bh.HandlerFunc {
+		return func(s bot.Service, u bot.Update) error {
 			if u.Message.ForwardSenderName != "" || u.Message.FowardFrom != nil {
 				return nil
 			}
-			return next(bot, u)
+			return next(s, u)
 		}
 	}
 }
 
-func (h Handler) RequireGod(next tgh.HandlerFunc) tgh.HandlerFunc {
-	return func(bot tg.Bot, u tg.Update) error {
+func (h Handler) RequireGod(next bh.HandlerFunc) bh.HandlerFunc {
+	return func(s bot.Service, u bot.Update) error {
 		if u.Message.Chat.Type == "private" && u.Message.From.ID == h.Config.GodID {
-			return next(bot, u)
+			return next(s, u)
 		}
 
-		return tgh.Reply{
+		return bh.Reply{
 			Text: "você não tem permissão para isso",
 		}
 	}
 }
 
-func (h Handler) RequireAdmin(next tgh.HandlerFunc) tgh.HandlerFunc {
-	return func(bot tg.Bot, u tg.Update) error {
-		isAdmin, err := h.isAdmin(bot, u)
+func (h Handler) RequireAdmin(next bh.HandlerFunc) bh.HandlerFunc {
+	return func(s bot.Service, u bot.Update) error {
+		isAdmin, err := h.isAdmin(s, u)
 		if err != nil {
 			return err
 		}
 		if !isAdmin {
-			return tgh.Reply{
+			return bh.Reply{
 				Text: "você não tem permissão para isso",
 			}
 		}
 
-		return next(bot, u)
+		return next(s, u)
 	}
 }

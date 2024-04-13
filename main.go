@@ -5,12 +5,12 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/igoracmelo/euperturbot/bot"
+	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/igoracmelo/euperturbot/config"
 	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/handler"
 	"github.com/igoracmelo/euperturbot/openai"
-	"github.com/igoracmelo/euperturbot/tg"
-	"github.com/igoracmelo/euperturbot/tg/tgh"
 	_ "modernc.org/sqlite"
 )
 
@@ -37,7 +37,7 @@ func main() {
 
 	oai := openai.NewService(conf.OpenAIKey, http.DefaultClient)
 
-	bot := tg.NewBot(conf.BotToken)
+	bot := bot.NewService(conf.BotToken)
 	if err != nil {
 		panic(err)
 	}
@@ -55,43 +55,43 @@ func main() {
 	}
 
 	updates := bot.GetUpdatesChannel()
-	c := tgh.NewUpdateController(bot, updates)
+	c := bh.NewUpdateController(bot, updates)
 
-	c.Middleware(h.EnsureStarted(), tgh.AnyMessage)
-	c.Middleware(h.IgnoreForwardedCommand(), tgh.AnyCommand)
+	c.Middleware(h.EnsureStarted(), bh.AnyMessage)
+	c.Middleware(h.IgnoreForwardedCommand(), bh.AnyCommand)
 
-	c.Handle(tgh.Command("start"), h.RequireAdmin(h.Start))
-	c.Handle(tgh.Command("suba"), h.SubToTopic)
-	c.Handle(tgh.Command("desca"), h.UnsubTopic)
-	c.Handle(tgh.Command("pollo"), h.CreatePoll)
-	c.Handle(tgh.Command("bora"), h.CallSubs)
-	c.Handle(tgh.Command("quem"), h.ListSubs)
-	c.Handle(tgh.Command("lista"), h.ListUserTopics)
-	c.Handle(tgh.Command("listudo"), h.ListChatTopics)
+	c.Handle(bh.Command("start"), h.RequireAdmin(h.Start))
+	c.Handle(bh.Command("suba"), h.SubToTopic)
+	c.Handle(bh.Command("desca"), h.UnsubTopic)
+	c.Handle(bh.Command("pollo"), h.CreatePoll)
+	c.Handle(bh.Command("bora"), h.CallSubs)
+	c.Handle(bh.Command("quem"), h.ListSubs)
+	c.Handle(bh.Command("lista"), h.ListUserTopics)
+	c.Handle(bh.Command("listudo"), h.ListChatTopics)
 	// c.Handle(tgh.Command("conta"), h.CountEvent)
 	// c.Handle(tgh.Command("desconta"), h.UncountEvent)
-	c.Handle(tgh.Command("a"), h.SaveAudio)
-	c.Handle(tgh.Command("arand"), h.SendRandomAudio)
-	c.Handle(tgh.Command("ask"), h.GPTCompletion)
-	c.Handle(tgh.Command("cask"), h.GPTChatCompletion)
-	c.Handle(tgh.Command("backup"), h.RequireGod(h.Backup))
-	c.Handle(tgh.Command("xonotic"), h.Xonotic)
-	c.Handle(tgh.AnyCallbackQuery, h.CallbackQuery)
-	c.Handle(tgh.AnyInlineQuery, h.InlineQuery)
+	c.Handle(bh.Command("a"), h.SaveAudio)
+	c.Handle(bh.Command("arand"), h.SendRandomAudio)
+	c.Handle(bh.Command("ask"), h.GPTCompletion)
+	c.Handle(bh.Command("cask"), h.GPTChatCompletion)
+	c.Handle(bh.Command("backup"), h.RequireGod(h.Backup))
+	c.Handle(bh.Command("xonotic"), h.Xonotic)
+	c.Handle(bh.AnyCallbackQuery, h.CallbackQuery)
+	c.Handle(bh.AnyInlineQuery, h.InlineQuery)
 
 	// switches
-	c.Handle(tgh.Command("enable_create_topics"), h.RequireAdmin(h.Enable("create_topics")))
-	c.Handle(tgh.Command("disable_create_topics"), h.RequireAdmin(h.Disable("create_topics")))
-	c.Handle(tgh.Command("enable_audio"), h.RequireAdmin(h.Enable("audio")))
-	c.Handle(tgh.Command("disable_audio"), h.RequireAdmin(h.Disable("audio")))
-	c.Handle(tgh.Command("enable_ask"), h.RequireAdmin(h.Enable("ask")))
-	c.Handle(tgh.Command("disable_ask"), h.RequireAdmin(h.Disable("ask")))
-	c.Handle(tgh.Command("enable_cask"), h.RequireAdmin(h.Enable("cask")))
-	c.Handle(tgh.Command("disable_cask"), h.RequireAdmin(h.Disable("cask")))
-	c.Handle(tgh.Command("enable_sed"), h.RequireAdmin(h.Enable("sed")))
-	c.Handle(tgh.Command("disable_sed"), h.RequireAdmin(h.Disable("sed")))
+	c.Handle(bh.Command("enable_create_topics"), h.RequireAdmin(h.Enable("create_topics")))
+	c.Handle(bh.Command("disable_create_topics"), h.RequireAdmin(h.Disable("create_topics")))
+	c.Handle(bh.Command("enable_audio"), h.RequireAdmin(h.Enable("audio")))
+	c.Handle(bh.Command("disable_audio"), h.RequireAdmin(h.Disable("audio")))
+	c.Handle(bh.Command("enable_ask"), h.RequireAdmin(h.Enable("ask")))
+	c.Handle(bh.Command("disable_ask"), h.RequireAdmin(h.Disable("ask")))
+	c.Handle(bh.Command("enable_cask"), h.RequireAdmin(h.Enable("cask")))
+	c.Handle(bh.Command("disable_cask"), h.RequireAdmin(h.Disable("cask")))
+	c.Handle(bh.Command("enable_sed"), h.RequireAdmin(h.Enable("sed")))
+	c.Handle(bh.Command("disable_sed"), h.RequireAdmin(h.Disable("sed")))
 
-	c.Handle(tgh.AnyText, h.Text)
+	c.Handle(bh.AnyText, h.Text)
 
 	c.Start()
 }
