@@ -17,7 +17,7 @@ import (
 )
 
 type Bot struct {
-	retry    *util.Retry
+	retry    util.Retry
 	token    string
 	Username string
 	baseURL  string
@@ -28,7 +28,7 @@ func NewBot(token string) *Bot {
 	return &Bot{
 		token:   token,
 		baseURL: "https://api.telegram.org/bot",
-		retry: &util.Retry{
+		retry: util.Retry{
 			MaxAttempts: 3,
 			Delay:       time.Second,
 		},

@@ -11,7 +11,7 @@ type Retry struct {
 	Delay       time.Duration
 }
 
-func (r *Retry) Do(fn func() error) error {
+func (r Retry) Do(fn func() error) error {
 	var err error
 
 	for i := 0; i < r.MaxAttempts; i++ {
