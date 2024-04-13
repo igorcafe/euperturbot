@@ -1,4 +1,4 @@
-package db
+package repo
 
 import (
 	"context"
@@ -15,7 +15,7 @@ type Message struct {
 	ReplyToMessageID int    `db:"reply_to_message_id"`
 }
 
-func (db *DB) SaveMessage(ctx context.Context, msg Message) error {
+func (db *Repo) SaveMessage(ctx context.Context, msg Message) error {
 	if len(msg.Text) > 500 {
 		msg.Text = msg.Text[:497] + "..."
 	}
@@ -44,7 +44,7 @@ func (db *DB) SaveMessage(ctx context.Context, msg Message) error {
 	return err
 }
 
-func (db *DB) FindMessage(ctx context.Context, chatID int64, msgID int) (Message, error) {
+func (db *Repo) FindMessage(ctx context.Context, chatID int64, msgID int) (Message, error) {
 	var msg Message
 	err := db.db.GetContext(ctx, &msg, `
 		SELECT * FROM message
@@ -53,7 +53,7 @@ func (db *DB) FindMessage(ctx context.Context, chatID int64, msgID int) (Message
 	return msg, err
 }
 
-func (db *DB) FindMessagesBeforeDate(ctx context.Context, chatID int64, date time.Time, count int) ([]Message, error) {
+func (db *Repo) FindMessagesBeforeDate(ctx context.Context, chatID int64, date time.Time, count int) ([]Message, error) {
 	msgs := []Message{}
 	err := db.db.SelectContext(context.TODO(), &msgs, `
 	 	SELECT * FROM (
@@ -71,7 +71,7 @@ func (db *DB) FindMessagesBeforeDate(ctx context.Context, chatID int64, date tim
 	return msgs, err
 }
 
-func (db *DB) FindMessageThread(ctx context.Context, chatID int64, msgID int) ([]Message, error) {
+func (db *Repo) FindMessageThread(ctx context.Context, chatID int64, msgID int) ([]Message, error) {
 	var msgs []Message
 
 	err := db.db.SelectContext(ctx, &msgs, `

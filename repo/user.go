@@ -1,4 +1,4 @@
-package db
+package repo
 
 import "context"
 
@@ -23,7 +23,7 @@ type UserTopic struct {
 	Subscribers int
 }
 
-func (db *DB) SaveUser(u User) error {
+func (db *Repo) SaveUser(u User) error {
 	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO user
 		(id, first_name, username)
@@ -35,13 +35,13 @@ func (db *DB) SaveUser(u User) error {
 	return err
 }
 
-func (db *DB) FindUser(id int64) (*User, error) {
+func (db *Repo) FindUser(id int64) (*User, error) {
 	var u User
 	err := db.db.GetContext(context.TODO(), &u, `SELECT * FROM user WHERE id = $1`, id)
 	return &u, err
 }
 
-func (db *DB) ExistsChatTopic(chatID int64, topic string) (bool, error) {
+func (db *Repo) ExistsChatTopic(chatID int64, topic string) (bool, error) {
 	row := db.db.QueryRowContext(context.TODO(), `
 		SELECT EXISTS (
 			SELECT * FROM user_topic
@@ -54,7 +54,7 @@ func (db *DB) ExistsChatTopic(chatID int64, topic string) (bool, error) {
 	return exists, err
 }
 
-func (db *DB) SaveUserTopic(topic UserTopic) error {
+func (db *Repo) SaveUserTopic(topic UserTopic) error {
 	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO user_topic
 		(chat_id, user_id, topic)
@@ -65,7 +65,7 @@ func (db *DB) SaveUserTopic(topic UserTopic) error {
 	return err
 }
 
-func (db *DB) DeleteUserTopic(topic UserTopic) (int64, error) {
+func (db *Repo) DeleteUserTopic(topic UserTopic) (int64, error) {
 	res, err := db.db.ExecContext(context.TODO(), `
 		DELETE FROM user_topic
 		WHERE chat_id = $1 AND user_id = $2 AND topic = $3
@@ -78,7 +78,7 @@ func (db *DB) DeleteUserTopic(topic UserTopic) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (db *DB) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
+func (db *Repo) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 	sql := `
 		SELECT *, (
 			SELECT COUNT(*) FROM user_topic
@@ -93,7 +93,7 @@ func (db *DB) FindUserChatTopics(chatID, userID int64) ([]UserTopic, error) {
 	return topics, err
 }
 
-func (db *DB) FindChatTopics(chatID int64) ([]UserTopic, error) {
+func (db *Repo) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	sql := `
 		SELECT DISTINCT *, COUNT(*) AS subscribers FROM user_topic
 		WHERE chat_id = $1
@@ -105,7 +105,7 @@ func (db *DB) FindChatTopics(chatID int64) ([]UserTopic, error) {
 	return topics, err
 }
 
-func (db *DB) FindUsersByTopic(chatID int64, topic string) ([]User, error) {
+func (db *Repo) FindUsersByTopic(chatID int64, topic string) ([]User, error) {
 	sql := `
 		SELECT u.* FROM user u
 		JOIN user_topic ut ON u.id = ut.user_id

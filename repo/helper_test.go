@@ -1,14 +1,14 @@
-package db
+package repo
 
 import (
 	"context"
 	"testing"
 )
 
-func newDB(t *testing.T) DB {
+func newDB(t *testing.T) Repo {
 	t.Helper()
 
-	db, err := NewSqlite(":memory:")
+	db, err := OpenSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

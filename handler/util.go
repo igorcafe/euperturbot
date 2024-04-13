@@ -9,7 +9,7 @@ import (
 
 	"github.com/igoracmelo/euperturbot/bot"
 	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
-	"github.com/igoracmelo/euperturbot/db"
+	"github.com/igoracmelo/euperturbot/repo"
 )
 
 func (h Handler) callSubs(s bot.Service, u bot.Update, topic string, quiet bool) error {
@@ -68,7 +68,7 @@ func (h Handler) callSubs(s bot.Service, u bot.Update, topic string, quiet bool)
 		return err
 	}
 
-	err = h.DB.SavePoll(db.Poll{
+	err = h.DB.SavePoll(repo.Poll{
 		ID:              strconv.Itoa(msg.MessageID),
 		ChatID:          u.Message.Chat.ID,
 		Topic:           topic,
@@ -78,7 +78,7 @@ func (h Handler) callSubs(s bot.Service, u bot.Update, topic string, quiet bool)
 	return err
 }
 
-func prepareMessagesForGPT(msgs []db.Message) []string {
+func prepareMessagesForGPT(msgs []repo.Message) []string {
 	msgTxts := []string{}
 	totalLen := 0
 

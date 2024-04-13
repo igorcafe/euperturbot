@@ -1,4 +1,4 @@
-package db
+package repo
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 func Test_Migrate(t *testing.T) {
-	db, err := NewSqlite(":memory:")
+	db, err := OpenSqlite(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

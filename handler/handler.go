@@ -19,20 +19,20 @@ import (
 	"github.com/igoracmelo/euperturbot/bot"
 	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/igoracmelo/euperturbot/config"
-	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/openai"
+	"github.com/igoracmelo/euperturbot/repo"
 	"github.com/igoracmelo/euperturbot/util"
 )
 
 type Handler struct {
-	DB      *db.DB
+	DB      *repo.Repo
 	OpenAI  openai.Service
 	BotInfo *bot.User
 	Config  *config.Config
 }
 
 func (h Handler) Start(s bot.Service, u bot.Update) error {
-	err := h.DB.SaveChat(context.TODO(), db.Chat{
+	err := h.DB.SaveChat(context.TODO(), repo.Chat{
 		ID:    u.Message.Chat.ID,
 		Title: u.Message.Chat.Name(),
 	})
@@ -68,7 +68,7 @@ func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
 		}
 	}
 
-	user := db.User{
+	user := repo.User{
 		ID:        u.Message.From.ID,
 		FirstName: sanitizeUsername(u.Message.From.FirstName),
 		Username:  sanitizeUsername(u.Message.From.Username),
@@ -111,7 +111,7 @@ func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
 			}
 		}
 
-		userTopic := db.UserTopic{
+		userTopic := repo.UserTopic{
 			ChatID: u.Message.Chat.ID,
 			UserID: user.ID,
 			Topic:  topic,
@@ -147,7 +147,7 @@ func (h Handler) UnsubTopic(s bot.Service, u bot.Update) error {
 		return err
 	}
 
-	n, err := h.DB.DeleteUserTopic(db.UserTopic{
+	n, err := h.DB.DeleteUserTopic(repo.UserTopic{
 		ChatID: u.Message.Chat.ID,
 		UserID: u.Message.From.ID,
 		Topic:  topic,
@@ -323,7 +323,7 @@ func (h Handler) SaveAudio(s bot.Service, u bot.Update) error {
 		}
 	}
 
-	err := h.DB.SaveVoice(db.Voice{
+	err := h.DB.SaveVoice(repo.Voice{
 		FileID: u.Message.ReplyToMessage.Voice.FileID,
 		UserID: u.Message.ReplyToMessage.From.ID,
 		ChatID: u.Message.Chat.ID,
@@ -426,7 +426,7 @@ func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Messag
 	if u.Message.ReplyToMessage != nil {
 		replyTo = u.Message.ReplyToMessage.MessageID
 	}
-	err = h.DB.SaveMessage(context.TODO(), db.Message{
+	err = h.DB.SaveMessage(context.TODO(), repo.Message{
 		ID:               u.Message.MessageID,
 		ChatID:           u.Message.Chat.ID,
 		Text:             txt,
@@ -438,7 +438,7 @@ func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Messag
 		return err
 	}
 
-	err = h.DB.SaveMessage(context.TODO(), db.Message{
+	err = h.DB.SaveMessage(context.TODO(), repo.Message{
 		ID:               msg.MessageID,
 		ChatID:           msg.Chat.ID,
 		Text:             msg.Text,
@@ -697,7 +697,7 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	if vote != nil && vote.Vote == voteNum {
 		err = h.DB.DeletePollVote(vote.PollID, vote.UserID)
 	} else {
-		err = h.DB.SavePollVote(db.PollVote{
+		err = h.DB.SavePollVote(repo.PollVote{
 			PollID: poll.ID,
 			UserID: u.CallbackQuery.From.ID,
 			Vote:   voteNum,
@@ -707,8 +707,8 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 		return err
 	}
 
-	if voteNum == db.VoteUp {
-		err = h.DB.SaveUserTopic(db.UserTopic{
+	if voteNum == repo.VoteUp {
+		err = h.DB.SaveUserTopic(repo.UserTopic{
 			ChatID: poll.ChatID,
 			UserID: u.CallbackQuery.From.ID,
 			Topic:  poll.Topic,
@@ -753,10 +753,10 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 			return err
 		}
 
-		if vote.Vote == db.VoteUp {
+		if vote.Vote == repo.VoteUp {
 			positiveCount++
 			positives += mention
-		} else if vote.Vote == db.VoteDown {
+		} else if vote.Vote == repo.VoteDown {
 			negativeCount++
 			negatives += mention
 		}
@@ -831,7 +831,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 		}
 
 		msg, err := h.DB.FindMessage(context.TODO(), u.Message.Chat.ID, u.Message.ReplyToMessage.MessageID)
-		if errors.Is(err, db.ErrNotFound) {
+		if errors.Is(err, repo.ErrNotFound) {
 			return nil
 		}
 		if err != nil {
@@ -906,7 +906,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 		replyID = u.Message.ReplyToMessage.MessageID
 	}
 
-	err := h.DB.SaveMessage(context.TODO(), db.Message{
+	err := h.DB.SaveMessage(context.TODO(), repo.Message{
 		ID:               u.Message.MessageID,
 		ReplyToMessageID: replyID,
 		ChatID:           u.Message.Chat.ID,

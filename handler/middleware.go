@@ -6,7 +6,7 @@ import (
 
 	"github.com/igoracmelo/euperturbot/bot"
 	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
-	"github.com/igoracmelo/euperturbot/db"
+	"github.com/igoracmelo/euperturbot/repo"
 )
 
 func (h Handler) EnsureStarted() bh.Middleware {
@@ -17,7 +17,7 @@ func (h Handler) EnsureStarted() bh.Middleware {
 			}
 
 			_, err := h.DB.FindChat(context.TODO(), u.Message.Chat.ID)
-			if errors.Is(err, db.ErrNotFound) {
+			if errors.Is(err, repo.ErrNotFound) {
 				// chat not /start'ed. ignore
 				return nil
 			}

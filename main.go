@@ -8,9 +8,9 @@ import (
 	"github.com/igoracmelo/euperturbot/bot"
 	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/igoracmelo/euperturbot/config"
-	"github.com/igoracmelo/euperturbot/db"
 	"github.com/igoracmelo/euperturbot/handler"
 	"github.com/igoracmelo/euperturbot/openai"
+	"github.com/igoracmelo/euperturbot/repo"
 	_ "modernc.org/sqlite"
 )
 
@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 
-	db, err := db.NewSqlite("euperturbot.db")
+	db, err := repo.OpenSqlite("euperturbot.db")
 	if err != nil {
 		panic(err)
 	}

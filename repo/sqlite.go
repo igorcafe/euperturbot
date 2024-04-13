@@ -1,10 +1,9 @@
-package db
+package repo
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,14 +11,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type DB struct {
+type Repo struct {
 	db      *sqlx.DB
 	Version int
 }
 
-var _ io.Closer = (*DB)(nil)
-
-func NewSqlite(dsn string) (*DB, error) {
+func OpenSqlite(dsn string) (*Repo, error) {
 	db, err := sqlx.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -30,13 +27,13 @@ func NewSqlite(dsn string) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{
+	return &Repo{
 		db,
 		0,
 	}, nil
 }
 
-func (db *DB) Migrate(ctx context.Context, dir string) error {
+func (db *Repo) Migrate(ctx context.Context, dir string) error {
 	var version int
 
 	err := db.db.QueryRowContext(ctx, "PRAGMA user_version;").Scan(&version)
@@ -86,6 +83,6 @@ func (db *DB) Migrate(ctx context.Context, dir string) error {
 	return db.Migrate(ctx, dir)
 }
 
-func (db *DB) Close() error {
+func (db *Repo) Close() error {
 	return db.db.Close()
 }

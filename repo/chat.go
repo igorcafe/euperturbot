@@ -1,4 +1,4 @@
-package db
+package repo
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type rawChat struct {
 	EnableCAsk int    `db:"enable_cask"`
 }
 
-func (db DB) SaveChat(ctx context.Context, chat Chat) error {
+func (db Repo) SaveChat(ctx context.Context, chat Chat) error {
 	rawChat := rawChat{
 		ID:         chat.ID,
 		Title:      chat.Title,
@@ -50,7 +50,7 @@ func (db DB) SaveChat(ctx context.Context, chat Chat) error {
 	return err
 }
 
-func (db DB) FindChat(ctx context.Context, chatID int64) (*Chat, error) {
+func (db Repo) FindChat(ctx context.Context, chatID int64) (*Chat, error) {
 	var c rawChat
 
 	err := db.db.GetContext(ctx, &c, `
@@ -65,13 +65,13 @@ func (db DB) FindChat(ctx context.Context, chatID int64) (*Chat, error) {
 	}, err
 }
 
-func (db DB) ChatEnables(ctx context.Context, chatID int64, action string) (bool, error) {
+func (db Repo) ChatEnables(ctx context.Context, chatID int64, action string) (bool, error) {
 	var iAllow int
 	err := db.db.GetContext(ctx, &iAllow, `SELECT enable_`+action+` FROM chat WHERE id = $1`, chatID)
 	return iAllow == 1, err
 }
 
-func (db DB) ChatEnable(ctx context.Context, chatID int64, action string) error {
+func (db Repo) ChatEnable(ctx context.Context, chatID int64, action string) error {
 	res, err := db.db.ExecContext(ctx, `
 		UPDATE chat
 		SET enable_`+action+` = 1
@@ -92,7 +92,7 @@ func (db DB) ChatEnable(ctx context.Context, chatID int64, action string) error 
 	return err
 }
 
-func (db DB) ChatDisable(ctx context.Context, chatID int64, action string) error {
+func (db Repo) ChatDisable(ctx context.Context, chatID int64, action string) error {
 	res, err := db.db.ExecContext(ctx, `
 		UPDATE chat
 		SET enable_`+action+` = 0
