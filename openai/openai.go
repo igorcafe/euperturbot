@@ -17,16 +17,17 @@ type Service interface {
 
 type service struct {
 	key               string
-	http              http.Client
+	http              *http.Client
 	mut               *sync.Mutex
 	rateLimitDeadline *atomic.Value
 }
 
-func NewService(key string) Service {
+func NewService(key string, http *http.Client) Service {
 	deadline := &atomic.Value{}
 	deadline.Store(time.Time{})
 	return &service{
 		key:               key,
+		http:              http,
 		mut:               new(sync.Mutex),
 		rateLimitDeadline: deadline,
 	}
@@ -56,20 +57,6 @@ func (err ErrRateLimit) Error() string {
 }
 
 func (s *service) Completion(params *CompletionParams) (*CompletionResponse, error) {
-	// if params.WaitRateLimit {
-	// 	c.mut.Lock()
-	// } else if !c.mut.TryLock() {
-	// 	secs := int(time.Until(c.rateLimitDeadline.Load().(time.Time)).Seconds())
-	// 	return nil, ErrRateLimit(secs)
-	// }
-
-	// deadline := time.Now().Add(20 * time.Second)
-	// c.rateLimitDeadline.Store(deadline)
-	// go func() {
-	// 	time.Sleep(time.Until(deadline))
-	// 	c.mut.Unlock()
-	// }()
-
 	if params.Model == "" {
 		params.Model = "gpt-3.5-turbo"
 	}

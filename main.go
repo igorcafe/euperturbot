@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 
 	"github.com/igoracmelo/euperturbot/config"
 	"github.com/igoracmelo/euperturbot/db"
@@ -34,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	oai := openai.NewService(conf.OpenAIKey)
+	oai := openai.NewService(conf.OpenAIKey, http.DefaultClient)
 
 	bot := tg.NewBot(conf.BotToken)
 	if err != nil {
