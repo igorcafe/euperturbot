@@ -30,25 +30,9 @@ func (db *DB) SavePoll(p Poll) error {
 	return err
 }
 
-func (db *DB) FindPoll(pollID string) (*Poll, error) {
-	var p Poll
-	err := db.db.GetContext(context.TODO(), &p, `SELECT * FROM poll WHERE id = $1`, pollID)
-	return &p, err
-}
-
 func (db *DB) FindPollByMessage(msgID int) (*Poll, error) {
 	var p Poll
 	err := db.db.GetContext(context.TODO(), &p, `SELECT * FROM poll WHERE result_message_id = $1`, msgID)
-	return &p, err
-}
-
-func (db *DB) FindLastPollByTopic(topic string) (*Poll, error) {
-	var p Poll
-	err := db.db.GetContext(context.TODO(), &p, `
-		SELECT * FROM poll
-		WHERE topic = $1
-		ORDER BY result_message_id DESC
-	`, topic)
 	return &p, err
 }
 
@@ -69,16 +53,6 @@ func (db *DB) DeletePollVote(pollID string, userID int64) error {
 		WHERE poll_id = $1 AND user_id = $2
 	`, pollID, userID)
 	return err
-}
-
-func (db *DB) FindPollVotes(pollID string) ([]PollVote, error) {
-	sql := `
-		SELECT * FROM poll_vote
-		WHERE poll_id = $1
-	`
-	var votes []PollVote
-	err := db.db.SelectContext(context.TODO(), &votes, sql, pollID)
-	return votes, err
 }
 
 func (db *DB) FindPollVote(pollID string, userID int64) (*PollVote, error) {
