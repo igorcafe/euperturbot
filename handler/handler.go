@@ -31,7 +31,7 @@ type Handler struct {
 	Config  *config.Config
 }
 
-func (h Handler) Start(bot *tg.Bot, u tg.Update) error {
+func (h Handler) Start(bot tg.Bot, u tg.Update) error {
 	err := h.DB.SaveChat(context.TODO(), db.Chat{
 		ID:    u.Message.Chat.ID,
 		Title: u.Message.Chat.Name(),
@@ -49,7 +49,7 @@ func (h Handler) Start(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
+func (h Handler) SubToTopic(bot tg.Bot, u tg.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topics := []string{}
 	if len(fields) > 1 {
@@ -134,7 +134,7 @@ func (h Handler) SubToTopic(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
-func (h Handler) UnsubTopic(bot *tg.Bot, u tg.Update) error {
+func (h Handler) UnsubTopic(bot tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -172,7 +172,7 @@ func (h Handler) UnsubTopic(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
-func (h Handler) CreatePoll(bot *tg.Bot, u tg.Update) error {
+func (h Handler) CreatePoll(bot tg.Bot, u tg.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -194,7 +194,7 @@ func (h Handler) CreatePoll(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) CallSubs(bot *tg.Bot, u tg.Update) error {
+func (h Handler) CallSubs(bot tg.Bot, u tg.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -212,7 +212,7 @@ func (h Handler) CallSubs(bot *tg.Bot, u tg.Update) error {
 	return h.callSubs(bot, u, topic, false)
 }
 
-func (h Handler) ListSubs(bot *tg.Bot, u tg.Update) error {
+func (h Handler) ListSubs(bot tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -250,7 +250,7 @@ func (h Handler) ListSubs(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
-func (h Handler) ListUserTopics(bot *tg.Bot, u tg.Update) error {
+func (h Handler) ListUserTopics(bot tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := h.DB.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
@@ -276,7 +276,7 @@ func (h Handler) ListUserTopics(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
-func (h Handler) ListChatTopics(bot *tg.Bot, u tg.Update) error {
+func (h Handler) ListChatTopics(bot tg.Bot, u tg.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := h.DB.FindChatTopics(u.Message.Chat.ID)
@@ -303,7 +303,7 @@ func (h Handler) ListChatTopics(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
-func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
+func (h Handler) SaveAudio(bot tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return tgh.Reply{
@@ -337,7 +337,7 @@ func (h Handler) SaveAudio(bot *tg.Bot, u tg.Update) error {
 	}
 }
 
-func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
+func (h Handler) SendRandomAudio(bot tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return tgh.Reply{
@@ -362,7 +362,7 @@ func (h Handler) SendRandomAudio(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []openai.Message) error {
+func (h Handler) gptCompletion(bot tg.Bot, u tg.Update, msgs []openai.Message) error {
 	msg, err := bot.SendMessage(tg.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
@@ -449,7 +449,7 @@ func (h Handler) gptCompletion(bot *tg.Bot, u tg.Update, msgs []openai.Message) 
 	return err
 }
 
-func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
+func (h Handler) GPTCompletion(bot tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
 	if !enables {
 		return tgh.Reply{
@@ -479,7 +479,7 @@ func (h Handler) GPTCompletion(bot *tg.Bot, u tg.Update) error {
 	return h.gptCompletion(bot, u, msgs)
 }
 
-func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
+func (h Handler) GPTChatCompletion(bot tg.Bot, u tg.Update) error {
 	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
 		return tgh.Reply{
@@ -583,7 +583,7 @@ func (h Handler) GPTChatCompletion(bot *tg.Bot, u tg.Update) error {
 }
 
 func (h Handler) Enable(opt string) tgh.HandlerFunc {
-	return func(bot *tg.Bot, u tg.Update) error {
+	return func(bot tg.Bot, u tg.Update) error {
 		err := h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
 			return err
@@ -596,7 +596,7 @@ func (h Handler) Enable(opt string) tgh.HandlerFunc {
 }
 
 func (h Handler) Disable(opt string) tgh.HandlerFunc {
-	return func(bot *tg.Bot, u tg.Update) error {
+	return func(bot tg.Bot, u tg.Update) error {
 		err := h.DB.ChatDisable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
 			return err
@@ -608,7 +608,7 @@ func (h Handler) Disable(opt string) tgh.HandlerFunc {
 	}
 }
 
-func (h Handler) Backup(bot *tg.Bot, u tg.Update) error {
+func (h Handler) Backup(bot tg.Bot, u tg.Update) error {
 	return bot.SendDocument(tg.SendDocumentParams{
 		ChatID:   h.Config.GodID,
 		FileName: "./euperturbot.db",
@@ -616,7 +616,7 @@ func (h Handler) Backup(bot *tg.Bot, u tg.Update) error {
 }
 
 // WIP
-func (h Handler) Xonotic(bot *tg.Bot, u tg.Update) error {
+func (h Handler) Xonotic(bot tg.Bot, u tg.Update) error {
 	type XonoticResponse []struct {
 		Status        string
 		Name          string
@@ -673,7 +673,7 @@ func (h Handler) Xonotic(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
+func (h Handler) CallbackQuery(bot tg.Bot, u tg.Update) error {
 	var err error
 
 	poll, err := h.DB.FindPollByMessage(u.CallbackQuery.Message.MessageID)
@@ -796,7 +796,7 @@ func (h Handler) CallbackQuery(bot *tg.Bot, u tg.Update) error {
 	return err
 }
 
-func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
+func (h Handler) Text(bot tg.Bot, u tg.Update) error {
 	// sed commands
 	re := regexp.MustCompile(`^(s|y)\/.*\/`)
 	if re.MatchString(u.Message.Text) && u.Message.ReplyToMessage != nil {
@@ -920,7 +920,7 @@ func (h Handler) Text(bot *tg.Bot, u tg.Update) error {
 }
 
 // TODO:
-func (h Handler) InlineQuery(bot *tg.Bot, u tg.Update) error {
+func (h Handler) InlineQuery(bot tg.Bot, u tg.Update) error {
 	var err error
 
 	// TODO: debounce by u.InlineQuery.ID

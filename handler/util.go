@@ -12,7 +12,7 @@ import (
 	"github.com/igoracmelo/euperturbot/tg/tgh"
 )
 
-func (h Handler) callSubs(bot *tg.Bot, u tg.Update, topic string, quiet bool) error {
+func (h Handler) callSubs(bot tg.Bot, u tg.Update, topic string, quiet bool) error {
 	users, err := h.DB.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		if quiet {
@@ -142,7 +142,7 @@ func validateTopic(topic string) error {
 	return nil
 }
 
-func (h Handler) isAdmin(bot *tg.Bot, u tg.Update) (bool, error) {
+func (h Handler) isAdmin(bot tg.Bot, u tg.Update) (bool, error) {
 	if u.Message.Chat.Type == "private" {
 		return true, nil
 	}

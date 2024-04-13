@@ -11,7 +11,7 @@ import (
 
 func (h Handler) EnsureStarted() tgh.Middleware {
 	return func(next tgh.HandlerFunc) tgh.HandlerFunc {
-		return func(bot *tg.Bot, u tg.Update) error {
+		return func(bot tg.Bot, u tg.Update) error {
 			if u.Message.Text == "/start" {
 				return next(bot, u)
 			}
@@ -29,7 +29,7 @@ func (h Handler) EnsureStarted() tgh.Middleware {
 
 func (h Handler) IgnoreForwardedCommand() tgh.Middleware {
 	return func(next tgh.HandlerFunc) tgh.HandlerFunc {
-		return func(bot *tg.Bot, u tg.Update) error {
+		return func(bot tg.Bot, u tg.Update) error {
 			if u.Message.ForwardSenderName != "" || u.Message.FowardFrom != nil {
 				return nil
 			}
@@ -39,7 +39,7 @@ func (h Handler) IgnoreForwardedCommand() tgh.Middleware {
 }
 
 func (h Handler) RequireGod(next tgh.HandlerFunc) tgh.HandlerFunc {
-	return func(bot *tg.Bot, u tg.Update) error {
+	return func(bot tg.Bot, u tg.Update) error {
 		if u.Message.Chat.Type == "private" && u.Message.From.ID == h.Config.GodID {
 			return next(bot, u)
 		}
@@ -51,7 +51,7 @@ func (h Handler) RequireGod(next tgh.HandlerFunc) tgh.HandlerFunc {
 }
 
 func (h Handler) RequireAdmin(next tgh.HandlerFunc) tgh.HandlerFunc {
-	return func(bot *tg.Bot, u tg.Update) error {
+	return func(bot tg.Bot, u tg.Update) error {
 		isAdmin, err := h.isAdmin(bot, u)
 		if err != nil {
 			return err

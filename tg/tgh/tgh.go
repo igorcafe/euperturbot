@@ -10,9 +10,9 @@ import (
 	"github.com/igoracmelo/euperturbot/tg"
 )
 
-type HandlerFunc func(bot *tg.Bot, u tg.Update) error
+type HandlerFunc func(bot tg.Bot, u tg.Update) error
 type Middleware = func(next HandlerFunc) HandlerFunc
-type CriteriaFunc func(bot *tg.Bot, u tg.Update) bool
+type CriteriaFunc func(bot tg.Bot, u tg.Update) bool
 
 type Reply struct {
 	Text      string
@@ -24,7 +24,7 @@ func (r Reply) Error() string {
 }
 
 var And = func(criterias ...CriteriaFunc) CriteriaFunc {
-	return func(bot *tg.Bot, u tg.Update) bool {
+	return func(bot tg.Bot, u tg.Update) bool {
 		for _, c := range criterias {
 			if !c(bot, u) {
 				return false
@@ -34,15 +34,15 @@ var And = func(criterias ...CriteriaFunc) CriteriaFunc {
 	}
 }
 
-var AnyMessage CriteriaFunc = func(bot *tg.Bot, u tg.Update) bool {
+var AnyMessage CriteriaFunc = func(bot tg.Bot, u tg.Update) bool {
 	return u.Message != nil
 }
 
-var AnyText CriteriaFunc = func(bot *tg.Bot, u tg.Update) bool {
+var AnyText CriteriaFunc = func(bot tg.Bot, u tg.Update) bool {
 	return u.Message != nil && u.Message.Text != ""
 }
 
-var AnyCommand CriteriaFunc = func(bot *tg.Bot, u tg.Update) bool {
+var AnyCommand CriteriaFunc = func(bot tg.Bot, u tg.Update) bool {
 	if u.Message == nil {
 		return false
 	}
@@ -50,7 +50,7 @@ var AnyCommand CriteriaFunc = func(bot *tg.Bot, u tg.Update) bool {
 }
 
 var Command = func(cmd string) CriteriaFunc {
-	return func(bot *tg.Bot, u tg.Update) bool {
+	return func(bot tg.Bot, u tg.Update) bool {
 		if u.Message == nil {
 			return false
 		}
@@ -58,22 +58,22 @@ var Command = func(cmd string) CriteriaFunc {
 		if len(fields) == 0 {
 			return false
 		}
-		first := strings.TrimSuffix(fields[0], "@"+bot.Username)
+		first := strings.TrimSuffix(fields[0], "@"+bot.Username())
 		return first == "/"+cmd
 	}
 }
 
-var AnyCallbackQuery CriteriaFunc = func(bot *tg.Bot, u tg.Update) bool {
+var AnyCallbackQuery CriteriaFunc = func(bot tg.Bot, u tg.Update) bool {
 	return u.CallbackQuery != nil
 }
 
-var AnyInlineQuery CriteriaFunc = func(bot *tg.Bot, u tg.Update) bool {
+var AnyInlineQuery CriteriaFunc = func(bot tg.Bot, u tg.Update) bool {
 	return u.InlineQuery != nil
 }
 
 type UpdateController struct {
 	source   <-chan tg.Update
-	bot      *tg.Bot
+	bot      tg.Bot
 	handlers []struct {
 		criteria CriteriaFunc
 		fn       HandlerFunc
@@ -81,7 +81,7 @@ type UpdateController struct {
 	middlewares []Middleware
 }
 
-func NewUpdateController(bot *tg.Bot, source <-chan tg.Update) *UpdateController {
+func NewUpdateController(bot tg.Bot, source <-chan tg.Update) *UpdateController {
 	return &UpdateController{
 		source: source,
 		bot:    bot,
@@ -89,7 +89,7 @@ func NewUpdateController(bot *tg.Bot, source <-chan tg.Update) *UpdateController
 }
 
 func (uc *UpdateController) Middleware(mw Middleware, criterias ...CriteriaFunc) {
-	criteria := func(bot *tg.Bot, u tg.Update) bool {
+	criteria := func(bot tg.Bot, u tg.Update) bool {
 		for _, c := range criterias {
 			if !c(bot, u) {
 				return false
@@ -99,7 +99,7 @@ func (uc *UpdateController) Middleware(mw Middleware, criterias ...CriteriaFunc)
 	}
 
 	_mw := func(hf HandlerFunc) HandlerFunc {
-		return func(bot *tg.Bot, u tg.Update) error {
+		return func(bot tg.Bot, u tg.Update) error {
 			if criteria(bot, u) {
 				return mw(hf)(bot, u)
 			} else {
@@ -111,7 +111,7 @@ func (uc *UpdateController) Middleware(mw Middleware, criterias ...CriteriaFunc)
 	uc.middlewares = append(uc.middlewares, _mw)
 }
 
-func (uh *UpdateController) Handle(criteria CriteriaFunc, fn func(bot *tg.Bot, u tg.Update) error) {
+func (uh *UpdateController) Handle(criteria CriteriaFunc, fn func(bot tg.Bot, u tg.Update) error) {
 	uh.handlers = append(uh.handlers, struct {
 		criteria CriteriaFunc
 		fn       HandlerFunc
