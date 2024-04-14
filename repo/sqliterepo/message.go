@@ -1,21 +1,13 @@
-package repo
+package sqliterepo
 
 import (
 	"context"
 	"time"
+
+	"github.com/igoracmelo/euperturbot/repo"
 )
 
-type Message struct {
-	ID               int
-	ChatID           int64 `db:"chat_id"`
-	Text             string
-	Date             time.Time
-	UserID           int64  `db:"user_id"`
-	UserName         string `db:"user_name"`
-	ReplyToMessageID int    `db:"reply_to_message_id"`
-}
-
-func (db *Repo) SaveMessage(ctx context.Context, msg Message) error {
+func (db *sqliteRepo) SaveMessage(ctx context.Context, msg repo.Message) error {
 	if len(msg.Text) > 500 {
 		msg.Text = msg.Text[:497] + "..."
 	}
@@ -44,8 +36,8 @@ func (db *Repo) SaveMessage(ctx context.Context, msg Message) error {
 	return err
 }
 
-func (db *Repo) FindMessage(ctx context.Context, chatID int64, msgID int) (Message, error) {
-	var msg Message
+func (db *sqliteRepo) FindMessage(ctx context.Context, chatID int64, msgID int) (repo.Message, error) {
+	var msg repo.Message
 	err := db.db.GetContext(ctx, &msg, `
 		SELECT * FROM message
 		WHERE chat_id = $1 AND id = $2
@@ -53,8 +45,8 @@ func (db *Repo) FindMessage(ctx context.Context, chatID int64, msgID int) (Messa
 	return msg, err
 }
 
-func (db *Repo) FindMessagesBeforeDate(ctx context.Context, chatID int64, date time.Time, count int) ([]Message, error) {
-	msgs := []Message{}
+func (db *sqliteRepo) FindMessagesBeforeDate(ctx context.Context, chatID int64, date time.Time, count int) ([]repo.Message, error) {
+	msgs := []repo.Message{}
 	err := db.db.SelectContext(context.TODO(), &msgs, `
 	 	SELECT * FROM (
 			SELECT *
@@ -71,8 +63,8 @@ func (db *Repo) FindMessagesBeforeDate(ctx context.Context, chatID int64, date t
 	return msgs, err
 }
 
-func (db *Repo) FindMessageThread(ctx context.Context, chatID int64, msgID int) ([]Message, error) {
-	var msgs []Message
+func (db *sqliteRepo) FindMessageThread(ctx context.Context, chatID int64, msgID int) ([]repo.Message, error) {
+	var msgs []repo.Message
 
 	err := db.db.SelectContext(ctx, &msgs, `
 	WITH RECURSIVE replies(id, reply_to_message_id) AS (

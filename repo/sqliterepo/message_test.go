@@ -1,16 +1,18 @@
-package repo
+package sqliterepo
 
 import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/igoracmelo/euperturbot/repo"
 )
 
 func TestSaveAndFindMessage(t *testing.T) {
 	db := newDB(t)
 	defer db.Close()
 
-	want := Message{
+	want := repo.Message{
 		ID:               1,
 		ChatID:           1,
 		Text:             "text",
@@ -41,7 +43,7 @@ func TestFindMessageThread(t *testing.T) {
 
 	const chatID = 1
 
-	msgs := []Message{
+	msgs := []repo.Message{
 		{
 			ID:               1,
 			ChatID:           chatID,

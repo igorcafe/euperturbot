@@ -1,26 +1,12 @@
-package repo
+package sqliterepo
 
-import "context"
+import (
+	"context"
 
-type Poll struct {
-	ID              string
-	ChatID          int64 `db:"chat_id"`
-	Topic           string
-	ResultMessageID int `db:"result_message_id"`
-}
-
-type PollVote struct {
-	PollID string `db:"poll_id"`
-	UserID int64  `db:"user_id"`
-	Vote   int
-}
-
-const (
-	VoteUp   = 0
-	VoteDown = 1
+	"github.com/igoracmelo/euperturbot/repo"
 )
 
-func (db *Repo) SavePoll(p Poll) error {
+func (db *sqliteRepo) SavePoll(p repo.Poll) error {
 	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO poll
 		(id, chat_id, topic, result_message_id)
@@ -30,13 +16,13 @@ func (db *Repo) SavePoll(p Poll) error {
 	return err
 }
 
-func (db *Repo) FindPollByMessage(msgID int) (*Poll, error) {
-	var p Poll
+func (db *sqliteRepo) FindPollByMessage(msgID int) (*repo.Poll, error) {
+	var p repo.Poll
 	err := db.db.GetContext(context.TODO(), &p, `SELECT * FROM poll WHERE result_message_id = $1`, msgID)
 	return &p, err
 }
 
-func (db *Repo) SavePollVote(v PollVote) error {
+func (db *sqliteRepo) SavePollVote(v repo.PollVote) error {
 	_, err := db.db.ExecContext(context.TODO(), `
 		INSERT INTO poll_vote
 		(poll_id, user_id, vote)
@@ -47,7 +33,7 @@ func (db *Repo) SavePollVote(v PollVote) error {
 	return err
 }
 
-func (db *Repo) DeletePollVote(pollID string, userID int64) error {
+func (db *sqliteRepo) DeletePollVote(pollID string, userID int64) error {
 	_, err := db.db.ExecContext(context.TODO(), `
 		DELETE FROM poll_vote
 		WHERE poll_id = $1 AND user_id = $2
@@ -55,8 +41,8 @@ func (db *Repo) DeletePollVote(pollID string, userID int64) error {
 	return err
 }
 
-func (db *Repo) FindPollVote(pollID string, userID int64) (*PollVote, error) {
-	var v PollVote
+func (db *sqliteRepo) FindPollVote(pollID string, userID int64) (*repo.PollVote, error) {
+	var v repo.PollVote
 	err := db.db.GetContext(context.TODO(), &v, `
 		SELECT pv.* FROM poll_vote pv
 		JOIN user_topic ut ON ut.user_id = $2

@@ -1,4 +1,4 @@
-package repo
+package sqliterepo
 
 import (
 	"context"
@@ -8,10 +8,11 @@ import (
 )
 
 func Test_Migrate(t *testing.T) {
-	db, err := OpenSqlite(":memory:")
+	_db, err := Open(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
+	db := _db.(*sqliteRepo)
 
 	err = db.Migrate(context.TODO(), "./migrations")
 	if err != nil {

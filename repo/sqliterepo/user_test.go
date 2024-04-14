@@ -1,15 +1,17 @@
-package repo
+package sqliterepo
 
 import (
 	"errors"
 	"testing"
+
+	"github.com/igoracmelo/euperturbot/repo"
 )
 
 func TestCreateAndUpdateUser(t *testing.T) {
 	db := newDB(t)
 	defer db.Close()
 
-	user := User{
+	user := repo.User{
 		ID:        1,
 		FirstName: "FirstName",
 		Username:  "Username",
@@ -17,8 +19,8 @@ func TestCreateAndUpdateUser(t *testing.T) {
 
 	// not stored yet
 	_, err := db.FindUser(user.ID)
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("err - want: %v, got: %v", ErrNotFound, err)
+	if !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("err - want: %v, got: %v", repo.ErrNotFound, err)
 	}
 
 	err = db.SaveUser(user)
@@ -57,12 +59,12 @@ func TestCreateAndDeleteUserTopic(t *testing.T) {
 	db := newDB(t)
 	defer db.Close()
 
-	user := User{
+	user := repo.User{
 		ID:       1,
 		Username: "player",
 	}
 
-	userTopic := UserTopic{
+	userTopic := repo.UserTopic{
 		ID:     1,
 		ChatID: 1,
 		UserID: user.ID,

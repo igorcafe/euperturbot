@@ -1,14 +1,16 @@
-package repo
+package sqliterepo
 
 import (
 	"context"
 	"testing"
+
+	"github.com/igoracmelo/euperturbot/repo"
 )
 
-func newDB(t *testing.T) Repo {
+func newDB(t *testing.T) repo.Repo {
 	t.Helper()
 
-	db, err := OpenSqlite(":memory:")
+	db, err := Open(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,5 +20,5 @@ func newDB(t *testing.T) Repo {
 		t.Fatal(err)
 	}
 
-	return *db
+	return db
 }

@@ -1,4 +1,4 @@
-package repo
+package sqliterepo
 
 import (
 	"context"
@@ -8,15 +8,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/igoracmelo/euperturbot/repo"
 	"github.com/jmoiron/sqlx"
 )
 
-type Repo struct {
+type sqliteRepo struct {
 	db      *sqlx.DB
 	Version int
 }
 
-func OpenSqlite(dsn string) (*Repo, error) {
+func Open(dsn string) (repo.Repo, error) {
 	db, err := sqlx.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -27,13 +28,13 @@ func OpenSqlite(dsn string) (*Repo, error) {
 		return nil, err
 	}
 
-	return &Repo{
+	return &sqliteRepo{
 		db,
 		0,
 	}, nil
 }
 
-func (db *Repo) Migrate(ctx context.Context, dir string) error {
+func (db *sqliteRepo) Migrate(ctx context.Context, dir string) error {
 	var version int
 
 	err := db.db.QueryRowContext(ctx, "PRAGMA user_version;").Scan(&version)
@@ -83,6 +84,6 @@ func (db *Repo) Migrate(ctx context.Context, dir string) error {
 	return db.Migrate(ctx, dir)
 }
 
-func (db *Repo) Close() error {
+func (db *sqliteRepo) Close() error {
 	return db.db.Close()
 }

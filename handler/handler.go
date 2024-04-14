@@ -25,7 +25,7 @@ import (
 )
 
 type Handler struct {
-	DB      *repo.Repo
+	DB      repo.Repo
 	OpenAI  openai.Service
 	BotInfo *bot.User
 	Config  *config.Config

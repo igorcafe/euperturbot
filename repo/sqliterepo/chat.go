@@ -1,22 +1,11 @@
-package repo
+package sqliterepo
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 
+	"github.com/igoracmelo/euperturbot/repo"
 	"github.com/igoracmelo/euperturbot/util"
 )
-
-type Chat struct {
-	ID         int64
-	Title      string
-	EnableCAsk bool
-}
-
-var ErrChatActionNotAllowed = errors.New("chat action not allowed")
-
-var ErrNotFound = sql.ErrNoRows
 
 type rawChat struct {
 	ID         int64  `db:"id"`
@@ -24,7 +13,7 @@ type rawChat struct {
 	EnableCAsk int    `db:"enable_cask"`
 }
 
-func (db Repo) SaveChat(ctx context.Context, chat Chat) error {
+func (db sqliteRepo) SaveChat(ctx context.Context, chat repo.Chat) error {
 	rawChat := rawChat{
 		ID:         chat.ID,
 		Title:      chat.Title,
@@ -50,7 +39,7 @@ func (db Repo) SaveChat(ctx context.Context, chat Chat) error {
 	return err
 }
 
-func (db Repo) FindChat(ctx context.Context, chatID int64) (*Chat, error) {
+func (db sqliteRepo) FindChat(ctx context.Context, chatID int64) (*repo.Chat, error) {
 	var c rawChat
 
 	err := db.db.GetContext(ctx, &c, `
@@ -58,20 +47,20 @@ func (db Repo) FindChat(ctx context.Context, chatID int64) (*Chat, error) {
 		WHERE id = $1
 	`, chatID)
 
-	return &Chat{
+	return &repo.Chat{
 		ID:         c.ID,
 		Title:      c.Title,
 		EnableCAsk: c.EnableCAsk == 1,
 	}, err
 }
 
-func (db Repo) ChatEnables(ctx context.Context, chatID int64, action string) (bool, error) {
+func (db sqliteRepo) ChatEnables(ctx context.Context, chatID int64, action string) (bool, error) {
 	var iAllow int
 	err := db.db.GetContext(ctx, &iAllow, `SELECT enable_`+action+` FROM chat WHERE id = $1`, chatID)
 	return iAllow == 1, err
 }
 
-func (db Repo) ChatEnable(ctx context.Context, chatID int64, action string) error {
+func (db sqliteRepo) ChatEnable(ctx context.Context, chatID int64, action string) error {
 	res, err := db.db.ExecContext(ctx, `
 		UPDATE chat
 		SET enable_`+action+` = 1
@@ -87,12 +76,12 @@ func (db Repo) ChatEnable(ctx context.Context, chatID int64, action string) erro
 	}
 
 	if n == 0 {
-		return ErrNotFound
+		return repo.ErrNotFound
 	}
 	return err
 }
 
-func (db Repo) ChatDisable(ctx context.Context, chatID int64, action string) error {
+func (db sqliteRepo) ChatDisable(ctx context.Context, chatID int64, action string) error {
 	res, err := db.db.ExecContext(ctx, `
 		UPDATE chat
 		SET enable_`+action+` = 0
@@ -108,7 +97,7 @@ func (db Repo) ChatDisable(ctx context.Context, chatID int64, action string) err
 	}
 
 	if n == 0 {
-		return ErrNotFound
+		return repo.ErrNotFound
 	}
 	return err
 }
