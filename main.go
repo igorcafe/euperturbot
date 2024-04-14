@@ -24,23 +24,14 @@ func main() {
 		panic(err)
 	}
 
-	db, err := sqliterepo.Open("euperturbot.db")
+	repo, err := sqliterepo.Open(context.TODO(), "euperturbot.db", "./repo/sqliterepo/migrations")
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
-
-	err = db.Migrate(context.Background(), "./db/migrations")
-	if err != nil {
-		panic(err)
-	}
+	defer repo.Close()
 
 	oai := openai.NewService(conf.OpenAIKey, http.DefaultClient)
-
 	bot := bot.NewService(conf.BotToken)
-	if err != nil {
-		panic(err)
-	}
 
 	botInfo, err := bot.GetMe()
 	if err != nil {
@@ -48,7 +39,7 @@ func main() {
 	}
 
 	h := handler.Handler{
-		DB:      db,
+		Repo:    repo,
 		OpenAI:  oai,
 		BotInfo: botInfo,
 		Config:  &conf,

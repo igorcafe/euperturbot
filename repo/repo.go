@@ -9,7 +9,6 @@ import (
 
 type Repo interface {
 	Close() error
-	Migrate(ctx context.Context, dir string) error
 	SaveChat(ctx context.Context, chat Chat) error
 	FindChat(ctx context.Context, chatID int64) (*Chat, error)
 	ChatEnables(ctx context.Context, chatID int64, action string) (bool, error)

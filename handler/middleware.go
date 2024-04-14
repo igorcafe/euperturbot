@@ -16,7 +16,7 @@ func (h Handler) EnsureStarted() bh.Middleware {
 				return next(s, u)
 			}
 
-			_, err := h.DB.FindChat(context.TODO(), u.Message.Chat.ID)
+			_, err := h.Repo.FindChat(context.TODO(), u.Message.Chat.ID)
 			if errors.Is(err, repo.ErrNotFound) {
 				// chat not /start'ed. ignore
 				return nil

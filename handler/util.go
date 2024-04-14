@@ -13,7 +13,7 @@ import (
 )
 
 func (h Handler) callSubs(s bot.Service, u bot.Update, topic string, quiet bool) error {
-	users, err := h.DB.FindUsersByTopic(u.Message.Chat.ID, topic)
+	users, err := h.Repo.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		if quiet {
 			return err
@@ -68,7 +68,7 @@ func (h Handler) callSubs(s bot.Service, u bot.Update, topic string, quiet bool)
 		return err
 	}
 
-	err = h.DB.SavePoll(repo.Poll{
+	err = h.Repo.SavePoll(repo.Poll{
 		ID:              strconv.Itoa(msg.MessageID),
 		ChatID:          u.Message.Chat.ID,
 		Topic:           topic,

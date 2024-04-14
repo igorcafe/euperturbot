@@ -25,14 +25,14 @@ import (
 )
 
 type Handler struct {
-	DB      repo.Repo
+	Repo    repo.Repo
 	OpenAI  openai.Service
 	BotInfo *bot.User
 	Config  *config.Config
 }
 
 func (h Handler) Start(s bot.Service, u bot.Update) error {
-	err := h.DB.SaveChat(context.TODO(), repo.Chat{
+	err := h.Repo.SaveChat(context.TODO(), repo.Chat{
 		ID:    u.Message.Chat.ID,
 		Title: u.Message.Chat.Name(),
 	})
@@ -85,7 +85,7 @@ func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
 		user.Username = sanitizeUsername(u.Message.ReplyToMessage.From.Username)
 	}
 
-	err := h.DB.SaveUser(user)
+	err := h.Repo.SaveUser(user)
 	if err != nil {
 		return err
 	}
@@ -98,12 +98,12 @@ func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
 			return err
 		}
 
-		exists, err := h.DB.ExistsChatTopic(u.Message.Chat.ID, topic)
+		exists, err := h.Repo.ExistsChatTopic(u.Message.Chat.ID, topic)
 		if err != nil {
 			return err
 		}
 
-		enablesCreatingTopic, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "create_topics")
+		enablesCreatingTopic, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "create_topics")
 		isAdmin, _ := h.isAdmin(s, u)
 		if !exists && !isAdmin && !enablesCreatingTopic {
 			return bh.Reply{
@@ -116,7 +116,7 @@ func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
 			UserID: user.ID,
 			Topic:  topic,
 		}
-		err = h.DB.SaveUserTopic(userTopic)
+		err = h.Repo.SaveUserTopic(userTopic)
 		if err != nil {
 			log.Print(err)
 			return bh.Reply{
@@ -147,7 +147,7 @@ func (h Handler) UnsubTopic(s bot.Service, u bot.Update) error {
 		return err
 	}
 
-	n, err := h.DB.DeleteUserTopic(repo.UserTopic{
+	n, err := h.Repo.DeleteUserTopic(repo.UserTopic{
 		ChatID: u.Message.Chat.ID,
 		UserID: u.Message.From.ID,
 		Topic:  topic,
@@ -156,7 +156,7 @@ func (h Handler) UnsubTopic(s bot.Service, u bot.Update) error {
 		return fmt.Errorf("falha ao descer :/ (%w)", err)
 	}
 
-	user, err := h.DB.FindUser(u.Message.From.ID)
+	user, err := h.Repo.FindUser(u.Message.From.ID)
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func (h Handler) ListSubs(s bot.Service, u bot.Update) error {
 		}
 	}
 
-	users, err := h.DB.FindUsersByTopic(u.Message.Chat.ID, topic)
+	users, err := h.Repo.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		return bh.Reply{
 			Text: "falha ao listar usuários",
@@ -253,7 +253,7 @@ func (h Handler) ListSubs(s bot.Service, u bot.Update) error {
 func (h Handler) ListUserTopics(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
-	topics, err := h.DB.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
+	topics, err := h.Repo.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
 	if err != nil {
 		return bh.Reply{
 			Text: "falha ao listar tópicos",
@@ -279,7 +279,7 @@ func (h Handler) ListUserTopics(s bot.Service, u bot.Update) error {
 func (h Handler) ListChatTopics(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
-	topics, err := h.DB.FindChatTopics(u.Message.Chat.ID)
+	topics, err := h.Repo.FindChatTopics(u.Message.Chat.ID)
 	if err != nil {
 		log.Print(err)
 		return bh.Reply{
@@ -304,7 +304,7 @@ func (h Handler) ListChatTopics(s bot.Service, u bot.Update) error {
 }
 
 func (h Handler) SaveAudio(s bot.Service, u bot.Update) error {
-	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
+	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return bh.Reply{
 			Text: "comando desativado. ative com /enable_audio",
@@ -323,7 +323,7 @@ func (h Handler) SaveAudio(s bot.Service, u bot.Update) error {
 		}
 	}
 
-	err := h.DB.SaveVoice(repo.Voice{
+	err := h.Repo.SaveVoice(repo.Voice{
 		FileID: u.Message.ReplyToMessage.Voice.FileID,
 		UserID: u.Message.ReplyToMessage.From.ID,
 		ChatID: u.Message.Chat.ID,
@@ -338,14 +338,14 @@ func (h Handler) SaveAudio(s bot.Service, u bot.Update) error {
 }
 
 func (h Handler) SendRandomAudio(s bot.Service, u bot.Update) error {
-	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
+	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return bh.Reply{
 			Text: "comando desativado. ative com /enable_audio",
 		}
 	}
 
-	voice, err := h.DB.FindRandomVoice(u.Message.Chat.ID)
+	voice, err := h.Repo.FindRandomVoice(u.Message.Chat.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return bh.Reply{
 			Text: "nenhum áudio salvo para mandar",
@@ -426,7 +426,7 @@ func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Messag
 	if u.Message.ReplyToMessage != nil {
 		replyTo = u.Message.ReplyToMessage.MessageID
 	}
-	err = h.DB.SaveMessage(context.TODO(), repo.Message{
+	err = h.Repo.SaveMessage(context.TODO(), repo.Message{
 		ID:               u.Message.MessageID,
 		ChatID:           u.Message.Chat.ID,
 		Text:             txt,
@@ -438,7 +438,7 @@ func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Messag
 		return err
 	}
 
-	err = h.DB.SaveMessage(context.TODO(), repo.Message{
+	err = h.Repo.SaveMessage(context.TODO(), repo.Message{
 		ID:               msg.MessageID,
 		ChatID:           msg.Chat.ID,
 		Text:             msg.Text,
@@ -450,7 +450,7 @@ func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Messag
 }
 
 func (h Handler) GPTCompletion(s bot.Service, u bot.Update) error {
-	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
+	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
 	if !enables {
 		return bh.Reply{
 			Text: "comando desativado. ative com /enable_ask",
@@ -480,7 +480,7 @@ func (h Handler) GPTCompletion(s bot.Service, u bot.Update) error {
 }
 
 func (h Handler) GPTChatCompletion(s bot.Service, u bot.Update) error {
-	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
+	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
 		return bh.Reply{
 			Text: "comando desativado. ative com /enable_cask\nATENÇÃO! Ao ativar essa opção, as mensagens de texto serão salvas no banco de dados do s",
@@ -499,7 +499,7 @@ func (h Handler) GPTChatCompletion(s bot.Service, u bot.Update) error {
 		date = time.Unix(u.Message.ReplyToMessage.Date, 0)
 	}
 
-	msgs, err := h.DB.FindMessagesBeforeDate(context.TODO(), u.Message.Chat.ID, date, 100)
+	msgs, err := h.Repo.FindMessagesBeforeDate(context.TODO(), u.Message.Chat.ID, date, 100)
 	if err != nil {
 		return err
 	}
@@ -584,7 +584,7 @@ func (h Handler) GPTChatCompletion(s bot.Service, u bot.Update) error {
 
 func (h Handler) Enable(opt string) bh.HandlerFunc {
 	return func(s bot.Service, u bot.Update) error {
-		err := h.DB.ChatEnable(context.TODO(), u.Message.Chat.ID, opt)
+		err := h.Repo.ChatEnable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
 			return err
 		}
@@ -597,7 +597,7 @@ func (h Handler) Enable(opt string) bh.HandlerFunc {
 
 func (h Handler) Disable(opt string) bh.HandlerFunc {
 	return func(s bot.Service, u bot.Update) error {
-		err := h.DB.ChatDisable(context.TODO(), u.Message.Chat.ID, opt)
+		err := h.Repo.ChatDisable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
 			return err
 		}
@@ -676,7 +676,7 @@ func (h Handler) Xonotic(s bot.Service, u bot.Update) error {
 func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	var err error
 
-	poll, err := h.DB.FindPollByMessage(u.CallbackQuery.Message.MessageID)
+	poll, err := h.Repo.FindPollByMessage(u.CallbackQuery.Message.MessageID)
 	if err != nil {
 		return err
 	}
@@ -687,7 +687,7 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	}
 
 	// TODO: improve this logic
-	vote, err := h.DB.FindPollVote(poll.ID, u.CallbackQuery.From.ID)
+	vote, err := h.Repo.FindPollVote(poll.ID, u.CallbackQuery.From.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		vote = nil
 	} else if err != nil {
@@ -695,9 +695,9 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	}
 
 	if vote != nil && vote.Vote == voteNum {
-		err = h.DB.DeletePollVote(vote.PollID, vote.UserID)
+		err = h.Repo.DeletePollVote(vote.PollID, vote.UserID)
 	} else {
-		err = h.DB.SavePollVote(repo.PollVote{
+		err = h.Repo.SavePollVote(repo.PollVote{
 			PollID: poll.ID,
 			UserID: u.CallbackQuery.From.ID,
 			Vote:   voteNum,
@@ -708,7 +708,7 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	}
 
 	if voteNum == repo.VoteUp {
-		err = h.DB.SaveUserTopic(repo.UserTopic{
+		err = h.Repo.SaveUserTopic(repo.UserTopic{
 			ChatID: poll.ChatID,
 			UserID: u.CallbackQuery.From.ID,
 			Topic:  poll.Topic,
@@ -718,7 +718,7 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 		}
 	}
 
-	users, err := h.DB.FindUsersByTopic(poll.ChatID, poll.Topic)
+	users, err := h.Repo.FindUsersByTopic(poll.ChatID, poll.Topic)
 	if err != nil {
 		return err
 	}
@@ -744,7 +744,7 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	for _, user := range users {
 		mention := fmt.Sprintf("[%s](tg://user?id=%d)\n", user.Name(), user.ID)
 
-		vote, err := h.DB.FindPollVote(poll.ID, user.ID)
+		vote, err := h.Repo.FindPollVote(poll.ID, user.ID)
 		if errors.Is(err, sql.ErrNoRows) {
 			remainings += mention
 			remainingCount++
@@ -800,7 +800,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 	// sed commands
 	re := regexp.MustCompile(`^(s|y)\/.*\/`)
 	if re.MatchString(u.Message.Text) && u.Message.ReplyToMessage != nil {
-		enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "sed")
+		enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "sed")
 		if !enables {
 			return nil
 		}
@@ -825,12 +825,12 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 
 	// if reply to chatGPT, treat as /ask
 	if u.Message.ReplyToMessage != nil && u.Message.ReplyToMessage.From.ID == h.BotInfo.ID {
-		enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
+		enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
 		if !enables {
 			return nil
 		}
 
-		msg, err := h.DB.FindMessage(context.TODO(), u.Message.Chat.ID, u.Message.ReplyToMessage.MessageID)
+		msg, err := h.Repo.FindMessage(context.TODO(), u.Message.Chat.ID, u.Message.ReplyToMessage.MessageID)
 		if errors.Is(err, repo.ErrNotFound) {
 			return nil
 		}
@@ -842,7 +842,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 			return nil
 		}
 
-		msgs, err := h.DB.FindMessageThread(context.TODO(), u.Message.Chat.ID, u.Message.ReplyToMessage.MessageID)
+		msgs, err := h.Repo.FindMessageThread(context.TODO(), u.Message.Chat.ID, u.Message.ReplyToMessage.MessageID)
 		if err != nil {
 			return err
 		}
@@ -883,7 +883,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 	}
 
 	// save message
-	enables, _ := h.DB.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
+	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
 		return nil
 	}
@@ -906,7 +906,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 		replyID = u.Message.ReplyToMessage.MessageID
 	}
 
-	err := h.DB.SaveMessage(context.TODO(), repo.Message{
+	err := h.Repo.SaveMessage(context.TODO(), repo.Message{
 		ID:               u.Message.MessageID,
 		ReplyToMessageID: replyID,
 		ChatID:           u.Message.Chat.ID,

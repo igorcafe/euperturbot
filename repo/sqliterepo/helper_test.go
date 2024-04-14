@@ -10,12 +10,7 @@ import (
 func newDB(t *testing.T) repo.Repo {
 	t.Helper()
 
-	db, err := Open(":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = db.Migrate(context.Background(), "./migrations")
+	db, err := Open(context.TODO(), ":memory:", "./migrations")
 	if err != nil {
 		t.Fatal(err)
 	}

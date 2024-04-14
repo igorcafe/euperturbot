@@ -17,7 +17,7 @@ type sqliteRepo struct {
 	Version int
 }
 
-func Open(dsn string) (repo.Repo, error) {
+func Open(ctx context.Context, dsn string, dir string) (repo.Repo, error) {
 	db, err := sqlx.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -28,13 +28,16 @@ func Open(dsn string) (repo.Repo, error) {
 		return nil, err
 	}
 
-	return &sqliteRepo{
+	repo := &sqliteRepo{
 		db,
 		0,
-	}, nil
+	}
+
+	err = repo.migrate(ctx, dir)
+	return repo, err
 }
 
-func (db *sqliteRepo) Migrate(ctx context.Context, dir string) error {
+func (db *sqliteRepo) migrate(ctx context.Context, dir string) error {
 	var version int
 
 	err := db.db.QueryRowContext(ctx, "PRAGMA user_version;").Scan(&version)
@@ -81,7 +84,7 @@ func (db *sqliteRepo) Migrate(ctx context.Context, dir string) error {
 	db.Version = version + 1
 	log.Printf("SUCCESS")
 
-	return db.Migrate(ctx, dir)
+	return db.migrate(ctx, dir)
 }
 
 func (db *sqliteRepo) Close() error {
