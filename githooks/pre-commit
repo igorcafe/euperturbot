@@ -1,8 +1,0 @@
-git stash -u --keep-index &> /dev/null
-
-go vet ./...
-code=$?
-
-git stash pop &> /dev/null
-
-exit $code
