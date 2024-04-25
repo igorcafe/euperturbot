@@ -850,7 +850,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 		oaiMsgs := []openai.Message{}
 		for _, msg := range msgs {
 			role := "user"
-			if msg.UserID == h.Config.GPTUserID {
+			if msg.UserID == h.BotInfo.ID {
 				role = "assistant"
 			}
 
