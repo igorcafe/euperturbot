@@ -1,4 +1,4 @@
-package handler
+package controller
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"github.com/igoracmelo/euperturbot/repo"
 )
 
-func (h Handler) callSubs(s bot.Service, u bot.Update, topic string, quiet bool) error {
+func (h Controller) callSubs(s bot.Service, u bot.Update, topic string, quiet bool) error {
 	users, err := h.Repo.FindUsersByTopic(u.Message.Chat.ID, topic)
 	if err != nil {
 		if quiet {
@@ -142,7 +142,7 @@ func validateTopic(topic string) error {
 	return nil
 }
 
-func (h Handler) isAdmin(s bot.Service, u bot.Update) (bool, error) {
+func (h Controller) isAdmin(s bot.Service, u bot.Update) (bool, error) {
 	if u.Message.Chat.Type == "private" {
 		return true, nil
 	}

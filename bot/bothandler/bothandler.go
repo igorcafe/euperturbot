@@ -81,7 +81,7 @@ type UpdateController struct {
 	middlewares []Middleware
 }
 
-func NewUpdateController(s bot.Service, source <-chan bot.Update) *UpdateController {
+func NewUpdateHandler(s bot.Service, source <-chan bot.Update) *UpdateController {
 	return &UpdateController{
 		source: source,
 		bot:    s,

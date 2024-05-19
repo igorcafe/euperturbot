@@ -1,4 +1,4 @@
-package handler
+package controller
 
 import (
 	"bytes"
@@ -24,14 +24,14 @@ import (
 	"github.com/igoracmelo/euperturbot/util"
 )
 
-type Handler struct {
+type Controller struct {
 	Repo    repo.Repo
 	OpenAI  openai.Service
 	BotInfo *bot.User
 	Config  *config.Config
 }
 
-func (h Handler) Start(s bot.Service, u bot.Update) error {
+func (h Controller) Start(s bot.Service, u bot.Update) error {
 	err := h.Repo.SaveChat(context.TODO(), repo.Chat{
 		ID:    u.Message.Chat.ID,
 		Title: u.Message.Chat.Name(),
@@ -49,7 +49,7 @@ func (h Handler) Start(s bot.Service, u bot.Update) error {
 	return err
 }
 
-func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
+func (h Controller) SubToTopic(s bot.Service, u bot.Update) error {
 	fields := strings.SplitN(u.Message.Text, " ", 2)
 	topics := []string{}
 	if len(fields) > 1 {
@@ -134,7 +134,7 @@ func (h Handler) SubToTopic(s bot.Service, u bot.Update) error {
 	}
 }
 
-func (h Handler) UnsubTopic(s bot.Service, u bot.Update) error {
+func (h Controller) UnsubTopic(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -172,7 +172,7 @@ func (h Handler) UnsubTopic(s bot.Service, u bot.Update) error {
 	}
 }
 
-func (h Handler) CreatePoll(s bot.Service, u bot.Update) error {
+func (h Controller) CreatePoll(s bot.Service, u bot.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -194,7 +194,7 @@ func (h Handler) CreatePoll(s bot.Service, u bot.Update) error {
 	return err
 }
 
-func (h Handler) CallSubs(s bot.Service, u bot.Update) error {
+func (h Controller) CallSubs(s bot.Service, u bot.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -212,7 +212,7 @@ func (h Handler) CallSubs(s bot.Service, u bot.Update) error {
 	return h.callSubs(s, u, topic, false)
 }
 
-func (h Handler) ListSubs(s bot.Service, u bot.Update) error {
+func (h Controller) ListSubs(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	fields := strings.SplitN(u.Message.Text, " ", 2)
@@ -250,7 +250,7 @@ func (h Handler) ListSubs(s bot.Service, u bot.Update) error {
 	}
 }
 
-func (h Handler) ListUserTopics(s bot.Service, u bot.Update) error {
+func (h Controller) ListUserTopics(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := h.Repo.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
@@ -276,7 +276,7 @@ func (h Handler) ListUserTopics(s bot.Service, u bot.Update) error {
 	}
 }
 
-func (h Handler) ListChatTopics(s bot.Service, u bot.Update) error {
+func (h Controller) ListChatTopics(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 
 	topics, err := h.Repo.FindChatTopics(u.Message.Chat.ID)
@@ -303,7 +303,7 @@ func (h Handler) ListChatTopics(s bot.Service, u bot.Update) error {
 	}
 }
 
-func (h Handler) SaveAudio(s bot.Service, u bot.Update) error {
+func (h Controller) SaveAudio(s bot.Service, u bot.Update) error {
 	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return bh.Reply{
@@ -337,7 +337,7 @@ func (h Handler) SaveAudio(s bot.Service, u bot.Update) error {
 	}
 }
 
-func (h Handler) SendRandomAudio(s bot.Service, u bot.Update) error {
+func (h Controller) SendRandomAudio(s bot.Service, u bot.Update) error {
 	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "audio")
 	if !enables {
 		return bh.Reply{
@@ -362,7 +362,7 @@ func (h Handler) SendRandomAudio(s bot.Service, u bot.Update) error {
 	return err
 }
 
-func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Message) error {
+func (h Controller) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Message) error {
 	msg, err := s.SendMessage(bot.SendMessageParams{
 		ChatID:           u.Message.Chat.ID,
 		ReplyToMessageID: u.Message.MessageID,
@@ -449,7 +449,7 @@ func (h Handler) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Messag
 	return err
 }
 
-func (h Handler) GPTCompletion(s bot.Service, u bot.Update) error {
+func (h Controller) GPTCompletion(s bot.Service, u bot.Update) error {
 	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
 	if !enables {
 		return bh.Reply{
@@ -479,7 +479,7 @@ func (h Handler) GPTCompletion(s bot.Service, u bot.Update) error {
 	return h.gptCompletion(s, u, msgs)
 }
 
-func (h Handler) GPTChatCompletion(s bot.Service, u bot.Update) error {
+func (h Controller) GPTChatCompletion(s bot.Service, u bot.Update) error {
 	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "cask")
 	if !enables {
 		return bh.Reply{
@@ -582,7 +582,7 @@ func (h Handler) GPTChatCompletion(s bot.Service, u bot.Update) error {
 	return err
 }
 
-func (h Handler) Enable(opt string) bh.HandlerFunc {
+func (h Controller) Enable(opt string) bh.HandlerFunc {
 	return func(s bot.Service, u bot.Update) error {
 		err := h.Repo.ChatEnable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
@@ -595,7 +595,7 @@ func (h Handler) Enable(opt string) bh.HandlerFunc {
 	}
 }
 
-func (h Handler) Disable(opt string) bh.HandlerFunc {
+func (h Controller) Disable(opt string) bh.HandlerFunc {
 	return func(s bot.Service, u bot.Update) error {
 		err := h.Repo.ChatDisable(context.TODO(), u.Message.Chat.ID, opt)
 		if err != nil {
@@ -608,7 +608,7 @@ func (h Handler) Disable(opt string) bh.HandlerFunc {
 	}
 }
 
-func (h Handler) Backup(s bot.Service, u bot.Update) error {
+func (h Controller) Backup(s bot.Service, u bot.Update) error {
 	return s.SendDocument(bot.SendDocumentParams{
 		ChatID:   h.Config.GodID,
 		FileName: "./euperturbot.db",
@@ -616,7 +616,7 @@ func (h Handler) Backup(s bot.Service, u bot.Update) error {
 }
 
 // WIP
-func (h Handler) Xonotic(s bot.Service, u bot.Update) error {
+func (h Controller) Xonotic(s bot.Service, u bot.Update) error {
 	type XonoticResponse []struct {
 		Status        string
 		Name          string
@@ -673,7 +673,7 @@ func (h Handler) Xonotic(s bot.Service, u bot.Update) error {
 	return err
 }
 
-func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
+func (h Controller) CallbackQuery(s bot.Service, u bot.Update) error {
 	var err error
 
 	poll, err := h.Repo.FindPollByMessage(u.CallbackQuery.Message.MessageID)
@@ -796,7 +796,7 @@ func (h Handler) CallbackQuery(s bot.Service, u bot.Update) error {
 	return err
 }
 
-func (h Handler) Text(s bot.Service, u bot.Update) error {
+func (h Controller) Text(s bot.Service, u bot.Update) error {
 	// sed commands
 	re := regexp.MustCompile(`^(s|y)\/.*\/`)
 	if re.MatchString(u.Message.Text) && u.Message.ReplyToMessage != nil {
@@ -920,7 +920,7 @@ func (h Handler) Text(s bot.Service, u bot.Update) error {
 }
 
 // TODO:
-func (h Handler) InlineQuery(s bot.Service, u bot.Update) error {
+func (h Controller) InlineQuery(s bot.Service, u bot.Update) error {
 	var err error
 
 	// TODO: debounce by u.InlineQuery.ID
