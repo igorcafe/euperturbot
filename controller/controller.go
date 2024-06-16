@@ -452,9 +452,7 @@ func (h Controller) gptCompletion(s bot.Service, u bot.Update, msgs []openai.Mes
 func (h Controller) GPTCompletion(s bot.Service, u bot.Update) error {
 	enables, _ := h.Repo.ChatEnables(context.TODO(), u.Message.Chat.ID, "ask")
 	if !enables {
-		return bh.Reply{
-			Text: "comando desativado. ative com /enable_ask",
-		}
+		return nil
 	}
 
 	chunks := strings.SplitN(u.Message.Text, " ", 2)
