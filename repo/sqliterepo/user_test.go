@@ -9,7 +9,12 @@ import (
 
 func TestCreateAndUpdateUser(t *testing.T) {
 	db := newDB(t)
-	defer db.Close()
+	t.Cleanup(func() {
+		err := db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	user := repo.User{
 		ID:        1,
