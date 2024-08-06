@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type Repo interface {
+	DB() *sqlx.DB
 	Close() error
 	SaveChat(ctx context.Context, chat Chat) error
 	FindChat(ctx context.Context, chatID int64) (*Chat, error)

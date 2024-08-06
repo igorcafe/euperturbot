@@ -31,9 +31,9 @@ func main() {
 	defer repo.Close()
 
 	oai := openai.NewService(conf.OpenAIKey, http.DefaultClient)
-	bot := bot.NewService(conf.BotToken)
+	myBot := bot.NewService(conf.BotToken)
 
-	botInfo, err := bot.GetMe()
+	botInfo, err := myBot.GetMe()
 	if err != nil {
 		panic(err)
 	}
@@ -45,14 +45,18 @@ func main() {
 		Config:  &conf,
 	}
 
-	updates := bot.GetUpdatesChannel()
-	uh := bh.NewUpdateHandler(bot, updates)
+	updates := myBot.GetUpdatesChannel()
+	uh := bh.NewUpdateHandler(myBot, updates)
 
 	uh.Middleware(c.EnsureStarted(), bh.AnyMessage)
 	uh.Middleware(c.IgnoreForwardedCommand(), bh.AnyCommand)
 
 	uh.Handle(bh.Command("start"), c.RequireAdmin(c.Start))
-	uh.Handle(bh.Command("suba"), c.SubToTopic)
+
+	uh.Handle(bh.Command("suba"), func(s bot.Service, u bot.Update) error {
+		return subscribeToTopic(context.TODO(), repo.DB(), s, u)
+	})
+
 	uh.Handle(bh.Command("desca"), c.UnsubTopic)
 	uh.Handle(bh.Command("pollo"), c.CreatePoll)
 	uh.Handle(bh.Command("bora"), c.CallSubs)

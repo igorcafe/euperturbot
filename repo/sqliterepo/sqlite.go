@@ -37,6 +37,10 @@ func Open(ctx context.Context, dsn string, dir string) (repo.Repo, error) {
 	return repo, err
 }
 
+func (db *sqliteRepo) DB() *sqlx.DB {
+	return db.db
+}
+
 func (db *sqliteRepo) migrate(ctx context.Context, dir string) error {
 	var version int
 
