@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"log"
 	"regexp"
 	"strings"
@@ -28,6 +26,19 @@ func subscribeToTopic(ctx context.Context, db *sqlx.DB, b bot.Service, u bot.Upd
 	if len(topics) <= 1 {
 		return bh.Reply{Text: "cadê os tópicos bb?"}
 	}
+	topics = topics[1:]
+
+	chatID := u.Message.Chat.ID
+	userID := u.Message.From.ID
+	username := u.Message.From.Username
+	firstName := u.Message.From.FirstName
+
+	if u.Message.ReplyToMessage != nil {
+		msg := u.Message.ReplyToMessage
+		userID = msg.From.ID
+		username = msg.From.Username
+		firstName = msg.From.FirstName
+	}
 
 	for _, name := range topics {
 		name = strings.TrimSpace(name)
@@ -37,24 +48,26 @@ func subscribeToTopic(ctx context.Context, db *sqlx.DB, b bot.Service, u bot.Upd
 			return bh.Reply{Text: "topico invalido bb"}
 		}
 
-		var n int
-		err := db.QueryRowContext(ctx, `
-		SELECT
-			1
-		FROM
-			user_topic
-		WHERE
-			chat_id = $1 AND
-			topic = $2
-		`, u.Message.Chat.ID, name).Scan(&n)
+		var err error
 
-		if errors.Is(err, sql.ErrNoRows) {
-			return bh.Reply{Text: "foi mal ce n pode criar topico"}
-		}
-		if err != nil {
-			log.Print(err)
-			return bh.Reply{Text: "vish deu ruim"}
-		}
+		// var n int
+		// err := db.QueryRowContext(ctx, `
+		// SELECT
+		// 	1
+		// FROM
+		// 	user_topic
+		// WHERE
+		// 	chat_id = $1 AND
+		// 	topic = $2
+		// `, chatID, name).Scan(&n)
+
+		// if errors.Is(err, sql.ErrNoRows) {
+		// 	return bh.Reply{Text: "foi mal ce n pode criar topico"}
+		// }
+		// if err != nil {
+		// 	log.Print(err)
+		// 	return bh.Reply{Text: "vish deu ruim"}
+		// }
 
 		_, err = db.ExecContext(ctx, `
 		INSERT INTO user
@@ -64,11 +77,7 @@ func subscribeToTopic(ctx context.Context, db *sqlx.DB, b bot.Service, u bot.Upd
 		ON CONFLICT DO UPDATE
 		SET
 			first_name = excluded.first_name
-		`,
-			u.Message.From.ID,
-			u.Message.From.Username,
-			u.Message.From.FirstName,
-		)
+		`, userID, username, firstName)
 		if err != nil {
 			log.Print(err)
 			return bh.Reply{Text: "vish deu ruim"}
@@ -80,7 +89,7 @@ func subscribeToTopic(ctx context.Context, db *sqlx.DB, b bot.Service, u bot.Upd
 		VALUES
 			($1, $2, $3)
 		ON CONFLICT DO NOTHING
-		`)
+		`, chatID, userID, name)
 		if err != nil {
 			log.Print(err)
 			return bh.Reply{Text: "vish deu ruim"}
