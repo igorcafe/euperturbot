@@ -87,7 +87,12 @@ func main() {
 	uh.Handle(bh.Command("disable_sed"), c.RequireAdmin(c.Disable("sed")))
 
 	// TODO: text containing #topic
-	uh.Handle(bh.AnyText, c.Text)
+	uh.Handle(bh.AnyText, func(s bot.Service, u bot.Update) error {
+		if regexp.MustCompile(`^#[a-z0-9_]{1,}$`).MatchString(u.Message.Text) {
+			return callSubscribers(context.TODO(), repo.DB(), u, u.Message.Text)
+		}
+		return nil
+	})
 
 	uh.Start()
 }
