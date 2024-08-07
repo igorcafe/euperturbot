@@ -12,10 +12,6 @@ import (
 )
 
 func subscribeToTopic(ctx context.Context, db *sqlx.DB, u bot.Update) error {
-	if u.Message.From.IsBot {
-		return bh.Reply{Text: "nao pode inscrever bot"}
-	}
-
 	topics := strings.Fields(u.Message.Text)
 	if len(topics) <= 1 {
 		return bh.Reply{Text: "cadê os tópicos bb?"}
@@ -26,12 +22,18 @@ func subscribeToTopic(ctx context.Context, db *sqlx.DB, u bot.Update) error {
 	userID := u.Message.From.ID
 	username := u.Message.From.Username
 	firstName := u.Message.From.FirstName
+	isBot := u.Message.From.IsBot
 
 	if u.Message.ReplyToMessage != nil {
 		msg := u.Message.ReplyToMessage
 		userID = msg.From.ID
 		username = msg.From.Username
 		firstName = msg.From.FirstName
+		isBot = msg.From.IsBot
+	}
+
+	if isBot {
+		return bh.Reply{Text: "nao pode inscrever bot"}
 	}
 
 	for _, name := range topics {
