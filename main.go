@@ -48,6 +48,8 @@ func main() {
 	updates := myBot.GetUpdatesChannel()
 	uh := bh.NewUpdateHandler(myBot, updates)
 
+	go mentionScheduledTopicsWorker(context.TODO(), repo.DB(), myBot)
+
 	uh.Middleware(c.EnsureStarted(), bh.AnyMessage)
 	uh.Middleware(c.IgnoreForwardedCommand(), bh.AnyCommand)
 
@@ -67,6 +69,10 @@ func main() {
 
 	uh.Handle(bh.Command("lista"), func(s bot.Service, u bot.Update) error {
 		return listByUser(context.TODO(), repo.DB(), u)
+	})
+
+	uh.Handle(bh.Command("agenda"), func(s bot.Service, u bot.Update) error {
+		return scheduleMentionSubscribers(context.TODO(), repo.DB(), s, u)
 	})
 
 	uh.Handle(bh.Command("listudo"), c.ListChatTopics)
