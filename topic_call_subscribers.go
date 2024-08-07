@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	"github.com/igoracmelo/euperturbot/bot"
 	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/jmoiron/sqlx"
 )
 
-func callSubscribers(ctx context.Context, db *sqlx.DB, update bot.Update) error {
+func callSubscribers(ctx context.Context, db *sqlx.DB, s bot.Service, update bot.Update) error {
+	if strings.HasPrefix(update.Message.Text, "/") {
+		return nil
+	}
 	topic := regexp.MustCompile(`#[a-z0-9_]{1,}`).FindString(update.Message.Text)
 	if topic == "" {
 		return nil
@@ -39,7 +43,9 @@ func callSubscribers(ctx context.Context, db *sqlx.DB, update bot.Update) error 
 
 	msg := ""
 
+	count := 0
 	for rows.Next() {
+		count++
 		var chatID int64
 		var userID int64
 		var firstName string
@@ -47,6 +53,7 @@ func callSubscribers(ctx context.Context, db *sqlx.DB, update bot.Update) error 
 
 		err := rows.Scan(&chatID, &userID, &firstName, &username)
 		if err != nil {
+			log.Print(err)
 			return bh.Reply{Text: "vish deu ruim"}
 		}
 
@@ -56,6 +63,21 @@ func callSubscribers(ctx context.Context, db *sqlx.DB, update bot.Update) error 
 		}
 
 		msg += fmt.Sprintf("[%s](tg://user?id=%d) ", name, userID)
+
+		if count%4 == 0 {
+			_, err = s.SendMessage(bot.SendMessageParams{
+				ChatID:                   chatID,
+				Text:                     msg,
+				ReplyToMessageID:         update.Message.MessageID,
+				AllowSendingWithoutReply: true,
+				ParseMode:                "MarkdownV2",
+			})
+			if err != nil {
+				log.Print(err)
+				return bh.Reply{Text: "vish deu ruim"}
+			}
+			msg = ""
+		}
 	}
 	err = rows.Err()
 	if err != nil {
