@@ -127,32 +127,6 @@ func (h Controller) ListSubs(s bot.Service, u bot.Update) error {
 	}
 }
 
-func (h Controller) ListUserTopics(s bot.Service, u bot.Update) error {
-	log.Print(u.Message.Text)
-
-	topics, err := h.Repo.FindUserChatTopics(u.Message.Chat.ID, u.Message.From.ID)
-	if err != nil {
-		return bh.Reply{
-			Text: "falha ao listar tópicos",
-		}
-	}
-
-	if len(topics) == 0 {
-		return bh.Reply{
-			Text: "você não está inscrito em nenhum tópico",
-		}
-	}
-
-	txt := "seus tópicos:\n"
-	for _, topic := range topics {
-		txt += fmt.Sprintf("(%02d)  %s\n", topic.Subscribers, topic.Topic)
-	}
-
-	return bh.Reply{
-		Text: txt,
-	}
-}
-
 func (h Controller) ListChatTopics(s bot.Service, u bot.Update) error {
 	log.Print(u.Message.Text)
 

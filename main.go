@@ -64,7 +64,11 @@ func main() {
 	uh.Handle(bh.Command("pollo"), c.CreatePoll)
 	uh.Handle(bh.Command("bora"), c.CallSubs)
 	uh.Handle(bh.Command("quem"), c.ListSubs)
-	uh.Handle(bh.Command("lista"), c.ListUserTopics)
+
+	uh.Handle(bh.Command("lista"), func(s bot.Service, u bot.Update) error {
+		return listByUser(context.TODO(), repo.DB(), u)
+	})
+
 	uh.Handle(bh.Command("listudo"), c.ListChatTopics)
 	// c.Handle(tgh.Command("conta"), h.CountEvent)
 	// c.Handle(tgh.Command("desconta"), h.UncountEvent)
