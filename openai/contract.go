@@ -16,9 +16,11 @@ type Message struct {
 }
 
 type CompletionResponse struct {
-	Choices []struct {
-		Message Message `json:"message"`
-	}
+	Choices []Choice
+}
+
+type Choice struct {
+	Message Message `json:"message"`
 }
 
 type ErrRateLimit int
