@@ -4,13 +4,19 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 
 	"github.com/igoracmelo/euperturbot/bot"
 	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
 	"github.com/jmoiron/sqlx"
 )
 
-func callSubscribers(ctx context.Context, db *sqlx.DB, update bot.Update, topic string) error {
+func callSubscribers(ctx context.Context, db *sqlx.DB, update bot.Update) error {
+	topic := regexp.MustCompile(`#[a-z0-9_]{1,}`).FindString(update.Message.Text)
+	if topic == "" {
+		return nil
+	}
+
 	rows, err := db.QueryContext(ctx, `
 	SELECT
 		ut.chat_id,
