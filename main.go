@@ -54,7 +54,7 @@ func main() {
 	uh.Handle(bh.Command("start"), c.RequireAdmin(c.Start))
 
 	uh.Handle(bh.Command("suba"), func(s bot.Service, u bot.Update) error {
-		return subscribeToTopic(context.TODO(), repo.DB(), s, u)
+		return subscribeToTopic(context.TODO(), repo.DB(), u)
 	})
 
 	uh.Handle(bh.Command("desca"), c.UnsubTopic)

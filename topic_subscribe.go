@@ -11,7 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func subscribeToTopic(ctx context.Context, db *sqlx.DB, b bot.Service, u bot.Update) error {
+func subscribeToTopic(ctx context.Context, db *sqlx.DB, u bot.Update) error {
 	if u.Message.From.IsBot {
 		return bh.Reply{Text: "nao pode inscrever bot"}
 	}
