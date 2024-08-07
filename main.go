@@ -94,7 +94,7 @@ func main() {
 	uh.Handle(bh.Command("disable_sed"), c.RequireAdmin(c.Disable("sed")))
 
 	uh.Handle(bh.AnyText, func(s bot.Service, u bot.Update) error {
-		return callSubscribers(context.TODO(), repo.DB(), s, u)
+		return mentionSubscribers(context.TODO(), repo.DB(), s, u)
 	})
 
 	uh.Start()

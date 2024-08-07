@@ -13,7 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func callSubscribers(ctx context.Context, db *sqlx.DB, s bot.Service, update bot.Update) error {
+func mentionSubscribers(ctx context.Context, db *sqlx.DB, s bot.Service, update bot.Update) error {
 	if strings.HasPrefix(update.Message.Text, "/") {
 		return nil
 	}
