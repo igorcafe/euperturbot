@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/igoracmelo/euperturbot/bot"
 	bh "github.com/igoracmelo/euperturbot/bot/bothandler"
@@ -57,7 +58,10 @@ func main() {
 		return subscribeToTopic(context.TODO(), repo.DB(), u)
 	})
 
-	uh.Handle(bh.Command("desca"), c.UnsubTopic)
+	uh.Handle(bh.Command("desca"), func(s bot.Service, u bot.Update) error {
+		return unsubscribe(context.TODO(), repo.DB(), u)
+	})
+
 	uh.Handle(bh.Command("pollo"), c.CreatePoll)
 	uh.Handle(bh.Command("bora"), c.CallSubs)
 	uh.Handle(bh.Command("quem"), c.ListSubs)

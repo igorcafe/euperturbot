@@ -49,44 +49,6 @@ func (h Controller) Start(s bot.Service, u bot.Update) error {
 	return err
 }
 
-func (h Controller) UnsubTopic(s bot.Service, u bot.Update) error {
-	log.Print(u.Message.Text)
-
-	fields := strings.SplitN(u.Message.Text, " ", 2)
-	topic := ""
-	if len(fields) > 1 {
-		topic = fields[1]
-	}
-
-	if err := validateTopic(topic); err != nil {
-		return err
-	}
-
-	n, err := h.Repo.DeleteUserTopic(repo.UserTopic{
-		ChatID: u.Message.Chat.ID,
-		UserID: u.Message.From.ID,
-		Topic:  topic,
-	})
-	if err != nil {
-		return fmt.Errorf("falha ao descer :/ (%w)", err)
-	}
-
-	user, err := h.Repo.FindUser(u.Message.From.ID)
-	if err != nil {
-		return err
-	}
-
-	if n == 0 {
-		return bh.Reply{
-			Text: fmt.Sprintf("usuário %s não está inscrito nesse tópico", user.Name()),
-		}
-	}
-
-	return bh.Reply{
-		Text: "inscrição removida para " + user.Name(),
-	}
-}
-
 func (h Controller) CreatePoll(s bot.Service, u bot.Update) error {
 	log.Print(username(u.Message.From) + ": " + u.Message.Text)
 
