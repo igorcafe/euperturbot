@@ -38,10 +38,9 @@ func mentionScheduledTopicsWorker(ctx context.Context, db *sqlx.DB, s bot.Servic
 			WHERE
 				status = 'created' AND
 				datetime(time) BETWEEN
-					datetime($1, '-5 minutes') AND
-					datetime($1)
-			`, time.Now().Format("2006-01-02 15:04"),
-			).Scan(&chatID, &messageID, &topic)
+					datetime('now', '-5 minutes') AND
+					datetime('now')
+			`).Scan(&chatID, &messageID, &topic)
 
 			if errors.Is(err, sql.ErrNoRows) {
 				log.Print("no scheduled topic")
